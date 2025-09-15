@@ -4,7 +4,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="wordmark-light-full.svg">
     <source media="(prefers-color-scheme: light)" srcset="wordmark-dark-full.svg">
-    <img src="wordmark-dark-full.svg" alt="SARGEL" height="80">
+    <img src="wordmark-dark-full.svg" alt="SARGEL" height="200">
   </picture>
 </div>
 
