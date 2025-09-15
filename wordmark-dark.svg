@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 80">
-  <title>SARGEL Wordmark - Dark Theme</title>
+  <title>SARGEL Wordmark - Light Theme</title>
   <defs>
     <style>
-      .stroke { stroke: #F9FAFB; fill: none; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
-      .tick   { stroke: #F9FAFB; stroke-linecap: round; }
+      .stroke { stroke: #7C3AED; fill: none; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+      .tick   { stroke: #7C3AED; stroke-linecap: round; }
       .minor  { stroke-width: 2.5; }
       .major  { stroke-width: 3.5; }
-      .text   { fill: #F9FAFB; font-family: 'Inter', system-ui, sans-serif; font-size: 32px; font-weight: 600; }
+      .text   { fill: #111827; font-family: 'Inter', system-ui, sans-serif; font-size: 32px; font-weight: 600; }
     </style>
   </defs>
 

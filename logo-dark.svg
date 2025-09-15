@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-  <title>SARGEL - Dark Theme</title>
+  <title>SARGEL - Light Theme</title>
   <defs>
     <style>
-      .stroke { stroke: #F9FAFB; fill: none; stroke-width: 12; stroke-linecap: round; stroke-linejoin: round; }
-      .tick   { stroke: #F9FAFB; stroke-linecap: round; }
+      .stroke { stroke: #7C3AED; fill: none; stroke-width: 12; stroke-linecap: round; stroke-linejoin: round; }
+      .tick   { stroke: #7C3AED; stroke-linecap: round; }
       .minor  { stroke-width: 5; }
       .major  { stroke-width: 7; }
     </style>

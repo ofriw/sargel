@@ -1,8 +1,11 @@
 # SARGEL - Style And Rendering Graphical Element Lens
 
 <div align="center">
-  <img src="wordmark-dark-full.svg#gh-light-mode-only" alt="SARGEL" height="80">
-  <img src="wordmark-light-full.svg#gh-dark-mode-only" alt="SARGEL" height="80">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="wordmark-light-full.svg">
+    <source media="(prefers-color-scheme: light)" srcset="wordmark-dark-full.svg">
+    <img src="wordmark-dark-full.svg" alt="SARGEL" height="80">
+  </picture>
 </div>
 
 [![npm version](https://img.shields.io/npm/v/sargel.svg)](https://www.npmjs.com/package/sargel)
