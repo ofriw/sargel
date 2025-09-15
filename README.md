@@ -8,9 +8,17 @@
   </picture>
 </div>
 
-[![npm version](https://img.shields.io/npm/v/sargel.svg)](https://www.npmjs.com/package/sargel)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org/)
+<div align="center">
+  <a href="https://www.npmjs.com/package/sargel">
+    <img src="https://img.shields.io/npm/v/sargel.svg" alt="npm version">
+  </a>
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
+  </a>
+  <a href="https://nodejs.org/">
+    <img src="https://img.shields.io/badge/Node.js-18%2B-green.svg" alt="Node.js">
+  </a>
+</div>
 
 **Visual debugging for pixel-perfect web development.**
 
