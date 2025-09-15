@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <title>SARGEL - Light Theme</title>
+  <defs>
+    <style>
+      .stroke { stroke: #7C3AED; fill: none; stroke-width: 12; stroke-linecap: round; stroke-linejoin: round; }
+      .tick   { stroke: #7C3AED; stroke-linecap: round; }
+      .minor  { stroke-width: 5; }
+      .major  { stroke-width: 7; }
+    </style>
+  </defs>
+
+  <g transform="translate(100,100) rotate(-20) translate(-100,-100)">
+    <rect x="28" y="72" width="144" height="56" rx="14" class="stroke"/>
+    <g>
+      <line x1="40" y1="78" x2="40" y2="92" class="tick major"/>
+      <line x1="52" y1="78" x2="52" y2="88" class="tick minor"/>
+      <line x1="64" y1="78" x2="64" y2="88" class="tick minor"/>
+      <line x1="76" y1="78" x2="76" y2="92" class="tick major"/>
+      <line x1="88" y1="78" x2="88" y2="88" class="tick minor"/>
+      <line x1="100" y1="78" x2="100" y2="88" class="tick minor"/>
+      <line x1="112" y1="78" x2="112" y2="92" class="tick major"/>
+      <line x1="124" y1="78" x2="124" y2="88" class="tick minor"/>
+      <line x1="136" y1="78" x2="136" y2="88" class="tick minor"/>
+      <line x1="148" y1="78" x2="148" y2="92" class="tick major"/>
+      <line x1="160" y1="78" x2="160" y2="88" class="tick minor"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSS Property Groups Test</title>
+    <style>
+        .test-element {
+            /* Layout properties */
+            display: flex;
+            position: relative;
+            z-index: 10;
+            
+            /* Box properties */
+            width: 300px;
+            height: 200px;
+            margin: 20px;
+            padding: 15px;
+            border: 2px solid #333;
+            border-radius: 8px;
+            box-sizing: border-box;
+            
+            /* Flexbox properties */
+            justify-content: center;
+            align-items: center;
+            
+            /* Typography properties */
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            font-weight: bold;
+            line-height: 1.5;
+            text-align: center;
+            
+            /* Color properties */
+            color: #fff;
+            background-color: #007acc;
+            background-image: linear-gradient(45deg, #007acc, #0099ff);
+            
+            /* Visual effects */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transform: scale(1.02);
+            transition: all 0.3s ease;
+            
+            /* Custom property */
+            --custom-spacing: 10px;
+        }
+        
+        .test-element:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="test-element">
+        Test Element for CSS Property Groups
+    </div>
+</body>
+</html>

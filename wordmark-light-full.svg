@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350 100">
+  <title>SARGEL Full Wordmark - Light Theme</title>
+  <defs>
+    <style>
+      .stroke { stroke: #7C3AED; fill: none; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+      .tick   { stroke: #7C3AED; stroke-linecap: round; }
+      .minor  { stroke-width: 2.5; }
+      .major  { stroke-width: 3.5; }
+      .title  { fill: #111827; font-family: 'Inter', system-ui, sans-serif; font-size: 32px; font-weight: 600; }
+      .tagline{ fill: #6B7280; font-family: 'Inter', system-ui, sans-serif; font-size: 8px; font-weight: 400; }
+    </style>
+  </defs>
+
+  <!-- Ruler Icon -->
+  <g transform="translate(88,50) rotate(-20) translate(-88,-50)">
+    <rect x="52" y="36" width="72" height="28" rx="7" class="stroke"/>
+    <g>
+      <line x1="58" y1="39" x2="58" y2="46" class="tick major"/>
+      <line x1="64" y1="39" x2="64" y2="43" class="tick minor"/>
+      <line x1="70" y1="39" x2="70" y2="43" class="tick minor"/>
+      <line x1="76" y1="39" x2="76" y2="46" class="tick major"/>
+      <line x1="82" y1="39" x2="82" y2="43" class="tick minor"/>
+      <line x1="88" y1="39" x2="88" y2="43" class="tick minor"/>
+      <line x1="94" y1="39" x2="94" y2="46" class="tick major"/>
+      <line x1="100" y1="39" x2="100" y2="43" class="tick minor"/>
+      <line x1="106" y1="39" x2="106" y2="43" class="tick minor"/>
+      <line x1="112" y1="39" x2="112" y2="46" class="tick major"/>
+      <line x1="118" y1="39" x2="118" y2="43" class="tick minor"/>
+    </g>
+  </g>
+
+  <!-- Title -->
+  <text x="148" y="38" class="title" dominant-baseline="middle">SARGEL</text>
+
+  <!-- Tagline -->
+  <text x="148" y="62" class="tagline" dominant-baseline="middle">Style And Rendering Graphical</text>
+  <text x="148" y="74" class="tagline" dominant-baseline="middle">Element Lens</text>
+</svg>

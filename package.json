@@ -1,0 +1,45 @@
+{
+  "name": "sargel",
+  "version": "0.1.0",
+  "description": "MCP server for DOM element inspection via Chrome DevTools Protocol",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "sargel": "dist/index.js"
+  },
+  "files": [
+    "dist/",
+    "assets/"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "npm run build && npm run start",
+    "test": "cross-env HEADLESS=true node --test --test-concurrency=1 test/**/*.test.js",
+    "test:ui": "node --test --test-concurrency=1 test/**/*.test.js",
+    "test:debug": "cross-env DEBUG_TESTS=1 node --test --test-concurrency=1 test/**/*.test.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "latest",
+    "canvaskit-wasm": "^0.40.0",
+    "chrome-launcher": "^1.1.2",
+    "jimp": "^1.6.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/jimp": "^0.2.1",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.0",
+    "cross-env": "^10.0.0",
+    "typescript": "^5.7.0"
+  },
+  "keywords": [
+    "mcp",
+    "chrome",
+    "devtools",
+    "inspect",
+    "dom"
+  ],
+  "author": "",
+  "license": "MIT"
+}

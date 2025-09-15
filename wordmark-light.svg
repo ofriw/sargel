@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 80">
+  <title>SARGEL Wordmark - Light Theme</title>
+  <defs>
+    <style>
+      .stroke { stroke: #7C3AED; fill: none; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+      .tick   { stroke: #7C3AED; stroke-linecap: round; }
+      .minor  { stroke-width: 2.5; }
+      .major  { stroke-width: 3.5; }
+      .text   { fill: #111827; font-family: 'Inter', system-ui, sans-serif; font-size: 32px; font-weight: 600; }
+    </style>
+  </defs>
+
+  <!-- Ruler Icon -->
+  <g transform="translate(52,40) rotate(-20) translate(-43,-40)">
+    <rect x="7" y="25" width="72" height="28" rx="7" class="stroke"/>
+    <g>
+      <line x1="13" y1="28" x2="13" y2="36" class="tick major"/>
+      <line x1="19" y1="28" x2="19" y2="33" class="tick minor"/>
+      <line x1="25" y1="28" x2="25" y2="33" class="tick minor"/>
+      <line x1="31" y1="28" x2="31" y2="36" class="tick major"/>
+      <line x1="37" y1="28" x2="37" y2="33" class="tick minor"/>
+      <line x1="43" y1="28" x2="43" y2="33" class="tick minor"/>
+      <line x1="49" y1="28" x2="49" y2="36" class="tick major"/>
+      <line x1="55" y1="28" x2="55" y2="33" class="tick minor"/>
+      <line x1="61" y1="28" x2="61" y2="33" class="tick minor"/>
+      <line x1="67" y1="28" x2="67" y2="36" class="tick major"/>
+      <line x1="73" y1="28" x2="73" y2="33" class="tick minor"/>
+    </g>
+  </g>
+
+  <!-- Text -->
+  <text x="109" y="43" class="text" dominant-baseline="middle">SARGEL</text>
+</svg>
