@@ -1,4 +1,4 @@
-# SARGEL - Style And Rendering Graphical Element Lens
+# SARGEL
 
 <div align="center">
   <picture>
