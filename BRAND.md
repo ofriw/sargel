@@ -6,7 +6,7 @@
 
 ## Colors
 ```
-#7C3AED - Purple (primary)
+#C55B2B - Orange (primary)
 #10B981 - Green (success)
 #3B82F6 - Blue (info)
 #F59E0B - Yellow (warning)
@@ -29,7 +29,7 @@
 ## CSS
 ```css
 :root {
-  --color-primary: #7C3AED;
+  --color-primary: #C55B2B;
   --color-success: #10B981;
   --color-info: #3B82F6;
   --color-warning: #F59E0B;

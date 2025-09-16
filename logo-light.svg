@@ -3,8 +3,8 @@
   <title>SARGEL - Dark Theme</title>
   <defs>
     <style>
-      .stroke { stroke: #F9FAFB; fill: none; stroke-width: 12; stroke-linecap: round; stroke-linejoin: round; }
-      .tick   { stroke: #F9FAFB; stroke-linecap: round; }
+      .stroke { stroke: #C55B2B; fill: none; stroke-width: 12; stroke-linecap: round; stroke-linejoin: round; }
+      .tick   { stroke: #C55B2B; stroke-linecap: round; }
       .minor  { stroke-width: 5; }
       .major  { stroke-width: 7; }
     </style>

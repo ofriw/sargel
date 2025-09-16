@@ -3,8 +3,8 @@
   <title>SARGEL Wordmark - Light Theme</title>
   <defs>
     <style>
-      .stroke { stroke: #7C3AED; fill: none; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
-      .tick   { stroke: #7C3AED; stroke-linecap: round; }
+      .stroke { stroke: #C55B2B; fill: none; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+      .tick   { stroke: #C55B2B; stroke-linecap: round; }
       .minor  { stroke-width: 2.5; }
       .major  { stroke-width: 3.5; }
       .text   { fill: #111827; font-family: 'Inter', system-ui, sans-serif; font-size: 32px; font-weight: 600; }
