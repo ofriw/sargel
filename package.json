@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "description": "MCP server for DOM element inspection via Chrome DevTools Protocol",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
   "bin": {
-    "sargel": "dist/index.js"
+    "sargel": "dist/src/index.js"
   },
   "files": [
     "dist/",

@@ -3,7 +3,7 @@
  * Provides singleton CanvasKit initialization and text rendering services.
  */
 
-import { FONT_CONFIG, FALLBACK_COLORS } from './constants.js';
+import { FONT_CONFIG, FALLBACK_COLORS } from '../config/constants.js';
 
 // Global CanvasKit instance and resources
 let CanvasKit: any = null;

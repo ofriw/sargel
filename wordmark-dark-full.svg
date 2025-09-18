@@ -13,7 +13,7 @@
   </defs>
 
   <!-- Ruler Icon -->
-  <g transform="translate(88,50) rotate(-20) translate(-88,-50)">
+  <g transform="translate(88,50) rotate(-20) translate(-73,-50)">
     <rect x="52" y="36" width="72" height="28" rx="7" class="stroke"/>
     <g>
       <line x1="58" y1="39" x2="58" y2="46" class="tick major"/>
@@ -31,9 +31,9 @@
   </g>
 
   <!-- Title -->
-  <text x="148" y="38" class="title" dominant-baseline="middle">SARGEL</text>
+  <text x="170" y="38" class="title" dominant-baseline="middle">SARGEL</text>
 
   <!-- Tagline -->
-  <text x="148" y="62" class="tagline" dominant-baseline="middle">Style And Rendering Graphical</text>
-  <text x="148" y="74" class="tagline" dominant-baseline="middle">Element Lens</text>
+  <text x="170" y="62" class="tagline" dominant-baseline="middle">Style And Rendering Graphical</text>
+  <text x="170" y="74" class="tagline" dominant-baseline="middle">Element Lens</text>
 </svg>

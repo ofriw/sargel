@@ -97,7 +97,7 @@ test('Basic element inspection', async (t) => {
         const jsonContent = result.content[2];
         assert.strictEqual(jsonContent.type, 'text', 'Third item should be text');
         const diagnosticData = JSON.parse(jsonContent.text);
-        
+
         // Validate grouped styles (new optimized structure)
         assert.ok(diagnosticData.grouped_styles, 'Should include grouped styles');
         assert.ok(diagnosticData.grouped_styles.colors, 'Should have colors group');

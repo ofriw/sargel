@@ -3,8 +3,114 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { inspectElement } from './inspector.js';
-import type { InspectElementArgs } from './types.js';
+import { inspectElement } from './inspect-element.js';
+import type { InspectElementArgs } from './config/types.js';
+
+function formatDataAsMarkdown(data: any): string {
+  let markdown = '';
+
+  // Handle multi-element response
+  if (data.elements) {
+    for (const element of data.elements) {
+      markdown += `## Element: ${element.selector}\n\n`;
+      markdown += formatSingleElementAsMarkdown(element);
+      markdown += '\n';
+    }
+
+    if (data.relationships && data.relationships.length > 0) {
+      markdown += '## Relationships\n\n';
+      for (const rel of data.relationships) {
+        markdown += `- ${rel.from} → ${rel.to}: ${rel.distance.center_to_center}px apart\n`;
+      }
+      markdown += '\n';
+    }
+
+    if (data.viewport_adjustments) {
+      markdown += `## Viewport\n- Centered: ${data.viewport_adjustments.centered}\n- Zoom: ${data.viewport_adjustments.zoom_factor}x\n\n`;
+    }
+  } else {
+    // Handle single element response (backward compatibility)
+    markdown += formatSingleElementAsMarkdown(data);
+  }
+
+  return markdown;
+}
+
+function formatSingleElementAsMarkdown(element: any): string {
+  let markdown = '';
+
+  // Box Model (compact format)
+  if (element.box_model) {
+    const bm = element.box_model;
+    markdown += '### Box Model\n';
+    markdown += `- content: ${bm.content.x},${bm.content.y} (${bm.content.width}x${bm.content.height})\n`;
+    if (bm.padding.width > 0 || bm.padding.height > 0) {
+      markdown += `- padding: ${bm.padding.x},${bm.padding.y} (${bm.padding.width}x${bm.padding.height})\n`;
+    }
+    if (bm.border.width > 0 || bm.border.height > 0) {
+      markdown += `- border: ${bm.border.x},${bm.border.y} (${bm.border.width}x${bm.border.height})\n`;
+    }
+    if (bm.margin.width > 0 || bm.margin.height > 0) {
+      markdown += `- margin: ${bm.margin.x},${bm.margin.y} (${bm.margin.width}x${bm.margin.height})\n`;
+    }
+    markdown += '\n';
+  }
+
+  // Computed Styles (grouped by type)
+  if (element.computed_styles) {
+    markdown += '### Computed Styles\n';
+    const styles = element.computed_styles;
+
+    // Layout properties
+    const layoutProps = ['display', 'position', 'float', 'clear', 'flex-direction', 'flex-wrap', 'grid-template-columns'];
+    const layout = layoutProps.filter(prop => styles[prop]).map(prop => `- ${prop}: ${styles[prop]}`);
+    if (layout.length > 0) {
+      markdown += '**Layout:**\n' + layout.join('\n') + '\n\n';
+    }
+
+    // Box properties
+    const boxProps = ['width', 'height', 'margin', 'padding', 'border', 'box-sizing'];
+    const box = Object.keys(styles).filter(prop =>
+      boxProps.some(bp => prop.startsWith(bp))
+    ).map(prop => `- ${prop}: ${styles[prop]}`);
+    if (box.length > 0) {
+      markdown += '**Box:**\n' + box.join('\n') + '\n\n';
+    }
+
+    // Typography
+    const typoProps = ['font', 'text', 'line-height', 'letter-spacing', 'word-spacing'];
+    const typo = Object.keys(styles).filter(prop =>
+      typoProps.some(tp => prop.startsWith(tp))
+    ).map(prop => `- ${prop}: ${styles[prop]}`);
+    if (typo.length > 0) {
+      markdown += '**Typography:**\n' + typo.join('\n') + '\n\n';
+    }
+
+    // Colors
+    const colorProps = ['color', 'background', 'border-color', 'outline-color'];
+    const colors = Object.keys(styles).filter(prop =>
+      colorProps.some(cp => prop.includes('color') || prop.startsWith('background'))
+    ).map(prop => `- ${prop}: ${styles[prop]}`);
+    if (colors.length > 0) {
+      markdown += '**Colors:**\n' + colors.join('\n') + '\n\n';
+    }
+  }
+
+  // Cascade Rules (top 3 most specific)
+  if (element.cascade_rules && element.cascade_rules.length > 0) {
+    markdown += '### Cascade Rules\n';
+    element.cascade_rules.slice(0, 3).forEach((rule: any) => {
+      markdown += `**${rule.selector}** (${rule.specificity})\n`;
+      const props = Object.entries(rule.properties).slice(0, 5); // Top 5 properties
+      props.forEach(([prop, value]) => {
+        markdown += `- ${prop}: ${value}\n`;
+      });
+      markdown += '\n';
+    });
+  }
+
+  return markdown;
+}
 
 const server = new Server(
   {

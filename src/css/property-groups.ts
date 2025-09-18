@@ -1,4 +1,4 @@
-import type { GroupedStyles } from './types.js';
+import type { GroupedStyles } from '../config/types.js';
 
 export const CSS_PROPERTY_GROUPS = {
   layout: [

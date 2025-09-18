@@ -109,7 +109,7 @@ export interface ElementRelationship {
 export interface ElementInspection {
   selector: string;
   computed_styles: Record<string, string>;
-  grouped_styles?: GroupedStyles;
+  grouped_styles: GroupedStyles;
   cascade_rules: CascadeRule[];
   box_model: BoxModel;
   applied_edits?: Record<string, string>;

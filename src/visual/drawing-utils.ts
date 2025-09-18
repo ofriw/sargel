@@ -3,13 +3,13 @@
  * Extracted from inspector.ts for better modularity and reusability.
  */
 
-import type { Rect, BoxModel } from './types.js';
-import { 
-  VISUAL_CONFIG, 
-  TEXT_COLORS, 
+import type { Rect, BoxModel } from '../config/types.js';
+import {
+  VISUAL_CONFIG,
+  TEXT_COLORS,
   FONT_CONFIG,
-  BOX_MODEL_COLORS 
-} from './constants.js';
+  BOX_MODEL_COLORS
+} from '../config/constants.js';
 
 // Re-export the drawTextOnJimpImage function signature for external modules
 export type DrawTextFunction = (

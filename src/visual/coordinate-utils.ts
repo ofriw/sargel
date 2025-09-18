@@ -3,7 +3,7 @@
  * Provides clean, testable functions for complex coordinate transformations.
  */
 
-import type { Rect, BoxModel, ViewportInfo } from './types.js';
+import type { Rect, BoxModel, ViewportInfo } from '../config/types.js';
 
 /**
  * Interface for clip region information

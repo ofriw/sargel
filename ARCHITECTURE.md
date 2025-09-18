@@ -36,7 +36,7 @@ The system automatically detects whether a CSS selector matches one or multiple 
 
 ## Key Components
 
-### Core Inspector (`inspector.ts`)
+### Core Inspector (`src/inspect-element.ts`)
 
 **Main Function**: `inspectElement()`
 - Entry point that detects single vs multiple elements
@@ -61,7 +61,7 @@ The system automatically detects whether a CSS selector matches one or multiple 
 - Attributes are immediately cleaned up after use
 - Enables robust handling of dynamic content
 
-### Property Grouping System (`property-groups.ts`)
+### Property Grouping System (`src/css/property-groups.ts`)
 
 **Purpose**: Organizes CSS properties into logical categories for focused analysis
 - **Token efficiency**: Reduces API response size by filtering relevant properties

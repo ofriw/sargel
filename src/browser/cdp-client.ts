@@ -6,7 +6,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomBytes } from 'crypto';
 import { mkdirSync, writeFileSync } from 'fs';
-import type { BrowserInstance, ChromeTarget, ChromeVersion } from './types.js';
+import type { BrowserInstance, ChromeTarget, ChromeVersion } from '../config/types.js';
 
 // Global Chrome instance tracking
 let chromeInstance: LaunchedChrome | null = null;
