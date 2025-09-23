@@ -174,9 +174,10 @@ export async function ensureChromeWithCDP(): Promise<BrowserInstance> {
     chromeInstance = await launch({
       port: 0, // Let Chrome choose an available port
       chromeFlags: [
-        // Note: chrome-launcher automatically adds --headless if HEADLESS env var is set
+        // Explicitly add headless flag when HEADLESS env var is set
+        ...(process.env.HEADLESS === 'true' ? ['--headless=new'] : []),
         '--no-first-run',                    // Skip first run wizard
-        '--no-default-browser-check',        // Skip default browser prompt  
+        '--no-default-browser-check',        // Skip default browser prompt
         '--disable-default-apps',            // Don't install default apps
         '--enable-automation',               // Tell Chrome it's automated
         '--disable-features=ChromeWhatsNewUI', // No "What's New" popups
@@ -195,7 +196,10 @@ export async function ensureChromeWithCDP(): Promise<BrowserInstance> {
       maxConnectionRetries: 20,             // Try up to 10 seconds
       handleSIGINT: false                   // We'll handle signals ourselves
     });
-    
+
+    // Log Chrome PID to stderr for test cleanup
+    console.error(`Chrome launched with PID: ${chromeInstance.pid}`);
+
     // Connect to the launched Chrome instance
     return await connectToChrome(chromeInstance.port);
     
