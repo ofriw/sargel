@@ -643,9 +643,9 @@ async function drawRulers(
  * @returns Single element result or multi-element result with spatial relationships
  */
 export async function inspectElement(args: InspectElementArgs): Promise<MultiInspectionResult> {
-  const { 
-    css_selector, 
-    url, 
+  const {
+    css_selector,
+    url,
     property_groups = DEFAULT_PROPERTY_GROUPS,
     css_edits,
     limit = 10
@@ -893,6 +893,9 @@ async function collectElementStyles(
   elements: ElementInspection[];
   stats: { totalProperties: number; filteredProperties: number; totalRules: number; filteredRules: number; };
 }> {
+  // Preserve css_edits parameter to prevent reference corruption
+  const preservedCssEdits = css_edits ? { ...css_edits } : undefined;
+
   const elements: ElementInspection[] = [];
   let totalProperties = 0;
   let filteredProperties = 0;
@@ -904,9 +907,11 @@ async function collectElementStyles(
 
     // Get updated element metrics after centering and zooming using JavaScript
     const updatedMetrics = await getElementMetrics(cdp, nodeData[i].uniqueId);
-    const boxModel = updatedMetrics ?
-      convertElementMetricsToBoxModel(updatedMetrics) :
-      nodeData[i].boxModel; // fallback to original
+    if (!updatedMetrics) {
+      // If we can't get metrics, the element is likely not visible or has been removed
+      throw new Error(`Unable to get updated metrics for element ${i + 1} of ${nodeIds.length}: ${selector}. Element may have become invisible.`);
+    }
+    const boxModel = convertElementMetricsToBoxModel(updatedMetrics);
 
     // Update nodeData with new metrics and box model
     nodeData[i].boxModel = boxModel;
@@ -922,6 +927,10 @@ async function collectElementStyles(
     const allCascadeRules = convertCascadeRules(matchedStylesResult);
     const filteredCascadeRules = filterCascadeRules(allCascadeRules, property_groups, false);
 
+    // Check if we have valid CSS edits to apply
+    const hasEdits = preservedCssEdits && typeof preservedCssEdits === 'object' && Object.keys(preservedCssEdits).length > 0;
+
+
     // Add to elements array
     elements.push({
       selector: `${selector}[${i}]`, // Add index for clarity
@@ -929,7 +938,7 @@ async function collectElementStyles(
       grouped_styles: categorizeProperties(filteredComputedStyles),
       cascade_rules: filteredCascadeRules,
       box_model: boxModel,
-      applied_edits: css_edits && Object.keys(css_edits).length > 0 ? css_edits : undefined
+      applied_edits: hasEdits ? preservedCssEdits : undefined
     });
 
     // Accumulate stats
@@ -970,6 +979,13 @@ async function captureEnhancedScreenshot(
       nodeData[i].boxModel = convertElementMetricsToBoxModel(updatedMetrics);
       // Update elements array with final box model
       elements[i].box_model = nodeData[i].boxModel;
+    } else {
+      // Preserve existing box model if metrics update fails
+      if (nodeData[i].boxModel) {
+        elements[i].box_model = nodeData[i].boxModel;
+      } else {
+        console.error(`Warning: No fallback box model available for element ${i + 1}`);
+      }
     }
   }
 
@@ -1133,10 +1149,10 @@ async function inspectMultipleElements(
       viewportInfo,
       appliedZoomFactor
     );
-  
-  // Calculate relationships between elements
-  const relationships = calculateElementRelationships(nodeData);
-  
+
+    // Calculate relationships between elements
+    const relationships = calculateElementRelationships(nodeData);
+
     const result: MultiInspectionResult = {
       elements,
       relationships,
@@ -1154,9 +1170,9 @@ async function inspectMultipleElements(
         filtered_rules: filteredRules
       }
     };
-    
+
     return result;
-    
+
   } finally {
     await cleanupInspection(cdp, uniqueIds, appliedZoomFactor);
   }
