@@ -6,111 +6,104 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import { inspectElement } from './inspect-element.js';
 import type { InspectElementArgs } from './config/types.js';
 
-function formatDataAsMarkdown(data: any): string {
+function formatInspectionResult(result: any): string {
   let markdown = '';
 
-  // Handle multi-element response
-  if (data.elements) {
-    for (const element of data.elements) {
-      markdown += `## Element: ${element.selector}\n\n`;
-      markdown += formatSingleElementAsMarkdown(element);
+  // Check if elements array exists and has items
+  const elements = result.elements || [];
+  const elementCount = elements.length;
+
+  // Always use multi-element format for consistency
+  markdown += `# ${elementCount} element${elementCount === 1 ? '' : 's'}\n\n`;
+  if (elements && Array.isArray(elements)) {
+    for (const element of elements) {
+      markdown += `## ${element.selector}\n`;
+      // Always use compact format for consistency
+      markdown += formatElementCompact(element);
       markdown += '\n';
     }
-
-    if (data.relationships && data.relationships.length > 0) {
-      markdown += '## Relationships\n\n';
-      for (const rel of data.relationships) {
-        markdown += `- ${rel.from} → ${rel.to}: ${rel.distance.center_to_center}px apart\n`;
-      }
-      markdown += '\n';
-    }
-
-    if (data.viewport_adjustments) {
-      markdown += `## Viewport\n- Centered: ${data.viewport_adjustments.centered}\n- Zoom: ${data.viewport_adjustments.zoom_factor}x\n\n`;
-    }
-  } else {
-    // Handle single element response (backward compatibility)
-    markdown += formatSingleElementAsMarkdown(data);
   }
 
-  return markdown;
-}
+  if (result.relationships && result.relationships.length > 0) {
+    markdown += '## relations\n';
+    for (const rel of result.relationships) {
+      const alignments = [];
+      if (rel.alignment.left) alignments.push('left');
+      if (rel.alignment.right) alignments.push('right');
+      if (rel.alignment.top) alignments.push('top');
+      if (rel.alignment.bottom) alignments.push('bottom');
+      if (rel.alignment.vertical_center) alignments.push('vcenter');
+      if (rel.alignment.horizontal_center) alignments.push('hcenter');
 
-function formatSingleElementAsMarkdown(element: any): string {
-  let markdown = '';
-
-  // Box Model (compact format)
-  if (element.box_model) {
-    const bm = element.box_model;
-    markdown += '### Box Model\n';
-    markdown += `- content: ${bm.content.x},${bm.content.y} (${bm.content.width}x${bm.content.height})\n`;
-    if (bm.padding.width > 0 || bm.padding.height > 0) {
-      markdown += `- padding: ${bm.padding.x},${bm.padding.y} (${bm.padding.width}x${bm.padding.height})\n`;
-    }
-    if (bm.border.width > 0 || bm.border.height > 0) {
-      markdown += `- border: ${bm.border.x},${bm.border.y} (${bm.border.width}x${bm.border.height})\n`;
-    }
-    if (bm.margin.width > 0 || bm.margin.height > 0) {
-      markdown += `- margin: ${bm.margin.x},${bm.margin.y} (${bm.margin.width}x${bm.margin.height})\n`;
+      markdown += `${rel.from}→${rel.to}: ${rel.distance.horizontal},${rel.distance.vertical},${Math.round(rel.distance.center_to_center)}px`;
+      if (alignments.length > 0) {
+        markdown += ` ${alignments.join(',')}`;
+      }
+      markdown += '\n';
     }
     markdown += '\n';
   }
 
-  // Computed Styles (grouped by type)
-  if (element.computed_styles) {
-    markdown += '### Computed Styles\n';
-    const styles = element.computed_styles;
-
-    // Layout properties
-    const layoutProps = ['display', 'position', 'float', 'clear', 'flex-direction', 'flex-wrap', 'grid-template-columns'];
-    const layout = layoutProps.filter(prop => styles[prop]).map(prop => `- ${prop}: ${styles[prop]}`);
-    if (layout.length > 0) {
-      markdown += '**Layout:**\n' + layout.join('\n') + '\n\n';
-    }
-
-    // Box properties
-    const boxProps = ['width', 'height', 'margin', 'padding', 'border', 'box-sizing'];
-    const box = Object.keys(styles).filter(prop =>
-      boxProps.some(bp => prop.startsWith(bp))
-    ).map(prop => `- ${prop}: ${styles[prop]}`);
-    if (box.length > 0) {
-      markdown += '**Box:**\n' + box.join('\n') + '\n\n';
-    }
-
-    // Typography
-    const typoProps = ['font', 'text', 'line-height', 'letter-spacing', 'word-spacing'];
-    const typo = Object.keys(styles).filter(prop =>
-      typoProps.some(tp => prop.startsWith(tp))
-    ).map(prop => `- ${prop}: ${styles[prop]}`);
-    if (typo.length > 0) {
-      markdown += '**Typography:**\n' + typo.join('\n') + '\n\n';
-    }
-
-    // Colors
-    const colorProps = ['color', 'background', 'border-color', 'outline-color'];
-    const colors = Object.keys(styles).filter(prop =>
-      colorProps.some(cp => prop.includes('color') || prop.startsWith('background'))
-    ).map(prop => `- ${prop}: ${styles[prop]}`);
-    if (colors.length > 0) {
-      markdown += '**Colors:**\n' + colors.join('\n') + '\n\n';
+  if (result.viewport_adjustments) {
+    markdown += `viewport: ${result.viewport_adjustments.original_viewport.width}x${result.viewport_adjustments.original_viewport.height} zoom:${result.viewport_adjustments.zoom_factor}x centered:${result.viewport_adjustments.centered}\n`;
+    if (result.viewport_adjustments.original_positions && result.viewport_adjustments.original_positions.length > 0) {
+      markdown += 'positions:\n';
+      for (let i = 0; i < result.viewport_adjustments.original_positions.length; i++) {
+        const pos = result.viewport_adjustments.original_positions[i];
+        markdown += `${i}: ${pos.centerX},${pos.centerY},${pos.width}x${pos.height}\n`;
+      }
     }
   }
 
-  // Cascade Rules (top 3 most specific)
-  if (element.cascade_rules && element.cascade_rules.length > 0) {
-    markdown += '### Cascade Rules\n';
-    element.cascade_rules.slice(0, 3).forEach((rule: any) => {
-      markdown += `**${rule.selector}** (${rule.specificity})\n`;
-      const props = Object.entries(rule.properties).slice(0, 5); // Top 5 properties
-      props.forEach(([prop, value]) => {
-        markdown += `- ${prop}: ${value}\n`;
-      });
-      markdown += '\n';
-    });
+  // Add stats if available
+  if (result.stats) {
+    markdown += `\nstats: ${result.stats.total_properties}→${result.stats.filtered_properties} properties, ${result.stats.total_rules}→${result.stats.filtered_rules} rules\n`;
   }
 
   return markdown;
 }
+
+function formatElementCompact(element: any): string {
+  let markdown = '';
+
+  if (!element.box_model) {
+    markdown += 'box: undefined\n';
+  } else {
+    const bm = element.box_model;
+    markdown += `box: ${bm.content.x},${bm.content.y},${bm.content.width}x${bm.content.height}\n`;
+    markdown += `padding: ${bm.padding.x},${bm.padding.y},${bm.padding.width}x${bm.padding.height}\n`;
+    markdown += `border: ${bm.border.x},${bm.border.y},${bm.border.width}x${bm.border.height}\n`;
+    markdown += `margin: ${bm.margin.x},${bm.margin.y},${bm.margin.width}x${bm.margin.height}\n`;
+  }
+
+  // Computed styles - output ALL properties individually as expected by parser
+  if (element.computed_styles && Object.keys(element.computed_styles).length > 0) {
+    for (const [prop, value] of Object.entries(element.computed_styles)) {
+      markdown += `${prop}: ${value}\n`;
+    }
+  }
+
+  // Cascade rules
+  if (element.cascade_rules && element.cascade_rules.length > 0) {
+    markdown += '\ncascade:\n';
+    for (const rule of element.cascade_rules) {
+      const props = Object.entries(rule.properties).map(([k, v]) => `${k}:${v}`).join(' ');
+      markdown += `${rule.selector}[${rule.specificity}] ${props}\n`;
+    }
+  }
+
+  // Applied edits if any
+  if (element.applied_edits && Object.keys(element.applied_edits).length > 0) {
+    markdown += '\nedits:\n';
+    for (const [prop, value] of Object.entries(element.applied_edits)) {
+      markdown += `${prop}: ${value}\n`;
+    }
+    markdown += '\n';
+  }
+
+  return markdown;
+}
+
 
 const server = new Server(
   {
@@ -185,11 +178,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
-  
+
   if (name !== 'inspect_element') {
     throw new Error(`Unknown tool: ${name}`);
   }
-  
+
   try {
     const typedArgs = args as Record<string, unknown>;
     
@@ -218,37 +211,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     // Extract base64 data from data URL for image block
     const base64Data = result.screenshot.replace(/^data:image\/png;base64,/, '');
     
-    // Check if this is a single element (length 1) or multi-element result
-    const isMultiElement = result.elements.length > 1;
-    
-    // Create diagnostic data based on whether it's single or multi element
-    let diagnosticData: any;
-    if (isMultiElement) {
-      // Multi-element: keep full structure
-      diagnosticData = { ...result };
-    } else {
-      // Single element: flatten to match old InspectionResult format for backward compatibility
-      const singleElement = result.elements[0];
-      diagnosticData = {
-        computed_styles: singleElement.computed_styles,
-        grouped_styles: singleElement.grouped_styles,
-        cascade_rules: singleElement.cascade_rules,
-        box_model: singleElement.box_model,
-        applied_edits: singleElement.applied_edits,
-        viewport_adjustments: {
-          original_position: result.viewport_adjustments?.original_positions[0] || { centerX: 0, centerY: 0 },
-          centered: result.viewport_adjustments?.centered || false,
-          zoom_factor: result.viewport_adjustments?.zoom_factor || 1,
-          original_viewport: result.viewport_adjustments?.original_viewport
-        },
-        stats: result.stats
-      };
-    }
-    delete diagnosticData.screenshot; // Don't duplicate in diagnostic
-    
-    const elementText = isMultiElement 
+    const elementText = result.elements.length > 1
       ? `Inspected ${result.elements.length} elements: ${inspectArgs.css_selector}`
       : `Inspected element: ${inspectArgs.css_selector}`;
+
+    const markdownOutput = formatInspectionResult(result);
     
     return {
       content: [
@@ -263,7 +230,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         },
         {
           type: 'text',
-          text: JSON.stringify(diagnosticData, null, 2)
+          text: markdownOutput
         }
       ]
     };
