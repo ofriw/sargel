@@ -2,66 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { spawn, exec } from 'child_process';
-import { promisify } from 'util';
 import { createMCPClient } from '../helpers/mcp-client.js';
 import { createTestServer } from '../helpers/chrome-test-server.js';
-
-const execAsync = promisify(exec);
+import { parseMarkdownDiagnostic } from '../helpers/markdown-parser.js';
+import { killAllTestChromes } from '../helpers/chrome-test-helper.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 test('Basic element inspection', async (t) => {
     let testServer = null;
     let mcpClient = null;
-    let chromeProcess = null;
 
     try {
-        // Kill any existing Chrome on port 9222 and clean user data
-        try {
-            await execAsync('lsof -ti:9222 | xargs kill -9').catch(() => {});
-            await execAsync('rm -rf /tmp/chrome-test-9222').catch(() => {});
-            await new Promise(resolve => setTimeout(resolve, 2000));
-        } catch (error) {
-            // Ignore cleanup errors
-        }
-        
         // Start test server
         testServer = await createTestServer();
         const testUrl = testServer.getUrl();
         console.log(`Test page available at: ${testUrl}`);
 
-        // Launch Chrome with test page
-        chromeProcess = spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
-            '--remote-debugging-port=9222',
-            '--disable-gpu',
-            '--no-first-run',
-            '--no-default-browser-check',
-            '--window-size=1280,1024',
-            '--user-data-dir=/tmp/chrome-test-9222',
-            testUrl
-        ], { stdio: 'ignore', detached: true });
-
-        // Wait for Chrome to start and CDP to be available
-        let cdpReady = false;
-        let attempts = 0;
-        while (!cdpReady && attempts < 15) {
-            try {
-                const response = await fetch('http://localhost:9222/json/version');
-                cdpReady = response.ok;
-                if (cdpReady) {
-                    console.log('Chrome CDP ready on port 9222');
-                } else {
-                    throw new Error('CDP not ready');
-                }
-            } catch (error) {
-                attempts++;
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-        }
-        
-        if (!cdpReady) {
-            throw new Error('Chrome failed to start with CDP after 15 seconds');
-        }
 
         // Start MCP server
         const serverPath = join(__dirname, '..', '..', 'dist', 'index.js');
@@ -96,28 +52,37 @@ test('Basic element inspection', async (t) => {
         // Parse the JSON data (third item in content array)
         const jsonContent = result.content[2];
         assert.strictEqual(jsonContent.type, 'text', 'Third item should be text');
-        const diagnosticData = JSON.parse(jsonContent.text);
+        const diagnosticData = parseMarkdownDiagnostic(jsonContent.text);
 
-        // Validate grouped styles (new optimized structure)
-        assert.ok(diagnosticData.grouped_styles, 'Should include grouped styles');
-        assert.ok(diagnosticData.grouped_styles.colors, 'Should have colors group');
-        assert.ok(diagnosticData.grouped_styles.box, 'Should have box group');
-        assert.strictEqual(diagnosticData.grouped_styles.colors['background-color'], 'rgb(66, 133, 244)', 'Should have correct background color');
-        assert.strictEqual(diagnosticData.grouped_styles.box['width'], '400px', 'Should have correct width');
-        assert.strictEqual(diagnosticData.grouped_styles.box['height'], '60px', 'Should have correct height');
+        // Validate multi-element structure
+        assert.ok(diagnosticData.elements && diagnosticData.elements.length > 0, 'Should have elements array');
+        const element = diagnosticData.elements[0];
+
+        // Validate computed styles (parsed from markdown)
+        assert.ok(element.computed_styles, 'Should include computed styles');
+        assert.strictEqual(element.computed_styles['background-color'], 'rgb(66, 133, 244)', 'Should have correct background color');
+        assert.strictEqual(element.computed_styles['width'], '400px', 'Should have correct width');
+        assert.strictEqual(element.computed_styles['height'], '60px', 'Should have correct height');
 
         // Validate box model
-        assert.ok(diagnosticData.box_model, 'Should include box model');
-        assert.ok(diagnosticData.box_model.content, 'Should have content box');
-        assert.ok(diagnosticData.box_model.padding, 'Should have padding box');
-        assert.ok(diagnosticData.box_model.border, 'Should have border box');
-        assert.ok(diagnosticData.box_model.margin, 'Should have margin box');
+        assert.ok(element.box_model, 'Should include box model');
+        assert.ok(element.box_model.content, 'Should have content box');
+        // Only check for padding/border/margin if they exist (non-zero values)
+        if (element.box_model.padding) {
+            assert.ok(typeof element.box_model.padding.width === 'number', 'Padding should have width');
+        }
+        if (element.box_model.border) {
+            assert.ok(typeof element.box_model.border.width === 'number', 'Border should have width');
+        }
+        if (element.box_model.margin) {
+            assert.ok(typeof element.box_model.margin.width === 'number', 'Margin should have width');
+        }
 
         // Validate cascade rules
-        assert.ok(Array.isArray(diagnosticData.cascade_rules), 'Should include cascade rules array');
-        assert.ok(diagnosticData.cascade_rules.length > 0, 'Should have at least one cascade rule');
-        
-        const headerRule = diagnosticData.cascade_rules.find(rule => 
+        assert.ok(Array.isArray(element.cascade_rules), 'Should include cascade rules array');
+        assert.ok(element.cascade_rules.length > 0, 'Should have at least one cascade rule');
+
+        const headerRule = element.cascade_rules.find(rule =>
             rule.selector === '#test-header'
         );
         assert.ok(headerRule, 'Should include rule for #test-header selector');
@@ -131,24 +96,6 @@ test('Basic element inspection', async (t) => {
         }
         if (testServer) {
             await testServer.stop();
-        }
-        if (chromeProcess && !chromeProcess.killed) {
-            try {
-                process.kill(-chromeProcess.pid); // Kill process group
-            } catch (error) {
-                // Process might already be dead - ignore ESRCH errors
-                if (error.code !== 'ESRCH') {
-                    console.error('Error killing Chrome process:', error);
-                }
-            }
-        }
-        
-        // Ensure ALL Chrome processes are killed to prevent test interference
-        try {
-            await execAsync('pkill -f "Google Chrome"').catch(() => {});
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        } catch (error) {
-            // Ignore cleanup errors
         }
     }
 });

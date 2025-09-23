@@ -11,6 +11,7 @@ export class MCPClient extends EventEmitter {
         this.nextId = 1;
         this.pendingRequests = new Map();
         this.isInitialized = false;
+        this.chromePids = new Set(); // Track Chrome PIDs for cleanup
     }
 
     async start() {
@@ -41,8 +42,17 @@ export class MCPClient extends EventEmitter {
             });
 
             this.process.stderr.on('data', (data) => {
+                const output = data.toString();
                 // Forward stderr for debugging
-                console.error('MCP Server stderr:', data.toString());
+                console.error('MCP Server stderr:', output);
+
+                // Parse Chrome PID messages for cleanup tracking
+                const pidMatch = output.match(/Chrome launched with PID: (\d+)/);
+                if (pidMatch) {
+                    const pid = parseInt(pidMatch[1]);
+                    this.chromePids.add(pid);
+                    console.error(`Tracking Chrome PID for cleanup: ${pid}`);
+                }
             });
 
             this.process.on('error', (error) => {
@@ -165,14 +175,25 @@ export class MCPClient extends EventEmitter {
     }
 
     async stop() {
+        // Kill tracked Chrome processes first
+        for (const pid of this.chromePids) {
+            try {
+                process.kill(pid, 'SIGTERM');
+                console.error(`Killed Chrome PID: ${pid}`);
+            } catch (error) {
+                console.error(`Failed to kill Chrome PID ${pid}:`, error.message);
+            }
+        }
+        this.chromePids.clear();
+
         if (this.process) {
             this.process.kill();
-            
+
             return new Promise((resolve) => {
                 this.process.on('exit', () => {
                     resolve();
                 });
-                
+
                 // Force kill after 5 seconds
                 setTimeout(() => {
                     if (this.process && !this.process.killed) {

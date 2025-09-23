@@ -2,66 +2,23 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { spawn, exec } from 'child_process';
-import { promisify } from 'util';
 import { createMCPClient } from '../helpers/mcp-client.js';
 import { createTestServer } from '../helpers/chrome-test-server.js';
-
-const execAsync = promisify(exec);
+import { parseMarkdownDiagnostic } from '../helpers/markdown-parser.js';
+import { killAllTestChromes } from '../helpers/chrome-test-helper.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 test('Auto-center and zoom functionality', async (t) => {
     let testServer = null;
     let mcpClient = null;
-    let chromeProcess = null;
 
     try {
-        // Kill any existing Chrome on port 9222 and clean user data
-        try {
-            await execAsync('lsof -ti:9222 | xargs kill -9').catch(() => {});
-            await execAsync('rm -rf /tmp/chrome-test-9222').catch(() => {});
-            await new Promise(resolve => setTimeout(resolve, 2000));
-        } catch (error) {
-            // Ignore cleanup errors
-        }
-        
         // Start test server with standard fixture
         testServer = await createTestServer();
         const testUrl = testServer.getUrl();
         console.log(`Test page available at: ${testUrl}`);
 
-        // Launch Chrome with test page
-        chromeProcess = spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
-            '--remote-debugging-port=9222',
-            '--disable-gpu',
-            '--no-first-run',
-            '--no-default-browser-check',
-            '--window-size=1280,1024',
-            '--user-data-dir=/tmp/chrome-test-9222',
-            testUrl
-        ], { stdio: 'ignore', detached: true });
 
-        // Wait for Chrome to start and CDP to be available
-        let cdpReady = false;
-        let attempts = 0;
-        while (!cdpReady && attempts < 15) {
-            try {
-                const response = await fetch('http://localhost:9222/json/version');
-                cdpReady = response.ok;
-                if (cdpReady) {
-                    console.log('Chrome CDP ready on port 9222');
-                } else {
-                    throw new Error('CDP not ready');
-                }
-            } catch (error) {
-                attempts++;
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-        }
-        
-        if (!cdpReady) {
-            throw new Error('Chrome failed to start with CDP after 15 seconds');
-        }
 
         // Start MCP server
         const serverPath = join(__dirname, '..', '..', 'dist', 'index.js');
@@ -81,7 +38,7 @@ test('Auto-center and zoom functionality', async (t) => {
             
             // Parse diagnostic data
             const jsonContent = result.content[2];
-            const diagnosticData = JSON.parse(jsonContent.text);
+            const diagnosticData = parseMarkdownDiagnostic(jsonContent.text);
             
             // Verify viewport adjustments exist
             assert.ok(diagnosticData.viewport_adjustments, 'Should have viewport_adjustments');
@@ -97,10 +54,16 @@ test('Auto-center and zoom functionality', async (t) => {
                 'Should have centered boolean'
             );
             
+
             // Verify original position is stored
-            assert.ok(diagnosticData.viewport_adjustments.original_position, 'Should store original position');
+            assert.ok(diagnosticData.viewport_adjustments.original_positions, 'Should store original positions');
             assert.ok(
-                typeof diagnosticData.viewport_adjustments.original_position.centerX === 'number',
+                Array.isArray(diagnosticData.viewport_adjustments.original_positions) &&
+                diagnosticData.viewport_adjustments.original_positions.length > 0,
+                'Should have original positions array with at least one entry'
+            );
+            assert.ok(
+                typeof diagnosticData.viewport_adjustments.original_positions[0].centerX === 'number',
                 'Should have original centerX'
             );
             
@@ -120,7 +83,7 @@ test('Auto-center and zoom functionality', async (t) => {
             const result = response.result;
             
             const jsonContent = result.content[2];
-            const diagnosticData = JSON.parse(jsonContent.text);
+            const diagnosticData = parseMarkdownDiagnostic(jsonContent.text);
             
             // Verify viewport adjustments
             assert.ok(diagnosticData.viewport_adjustments, 'Should have viewport_adjustments');
@@ -149,7 +112,7 @@ test('Auto-center and zoom functionality', async (t) => {
 
             const result = response.result;
             const jsonContent = result.content[2];
-            const diagnosticData = JSON.parse(jsonContent.text);
+            const diagnosticData = parseMarkdownDiagnostic(jsonContent.text);
             
             // Precise box (200x100 + padding/border) should be reasonable size
             const zoomFactor = diagnosticData.viewport_adjustments.zoom_factor;
@@ -176,7 +139,7 @@ test('Auto-center and zoom functionality', async (t) => {
 
             const result = response.result;
             const jsonContent = result.content[2];
-            const diagnosticData = JSON.parse(jsonContent.text);
+            const diagnosticData = parseMarkdownDiagnostic(jsonContent.text);
             
             // Verify we got 3 elements
             assert.strictEqual(diagnosticData.elements.length, 3, 'Should find 3 nested elements');
@@ -221,7 +184,7 @@ test('Auto-center and zoom functionality', async (t) => {
 
             const result = response.result;
             const jsonContent = result.content[2];
-            const diagnosticData = JSON.parse(jsonContent.text);
+            const diagnosticData = parseMarkdownDiagnostic(jsonContent.text);
             
             // Should not center when disabled
             assert.strictEqual(
@@ -250,7 +213,7 @@ test('Auto-center and zoom functionality', async (t) => {
 
             const result = response.result;
             const jsonContent = result.content[2];
-            const diagnosticData = JSON.parse(jsonContent.text);
+            const diagnosticData = parseMarkdownDiagnostic(jsonContent.text);
             
             // Should not zoom when disabled
             assert.strictEqual(
@@ -282,7 +245,7 @@ test('Auto-center and zoom functionality', async (t) => {
 
             const result = response.result;
             const jsonContent = result.content[2];
-            const diagnosticData = JSON.parse(jsonContent.text);
+            const diagnosticData = parseMarkdownDiagnostic(jsonContent.text);
             
             // Should not center or zoom
             assert.strictEqual(
@@ -311,7 +274,7 @@ test('Auto-center and zoom functionality', async (t) => {
 
             const result = response.result;
             const jsonContent = result.content[2];
-            const diagnosticData = JSON.parse(jsonContent.text);
+            const diagnosticData = parseMarkdownDiagnostic(jsonContent.text);
             
             // Should use exact manual zoom factor
             assert.strictEqual(
@@ -336,7 +299,7 @@ test('Auto-center and zoom functionality', async (t) => {
 
             const resultHigh = responseHigh.result;
             const jsonContentHigh = resultHigh.content[2];
-            const diagnosticDataHigh = JSON.parse(jsonContentHigh.text);
+            const diagnosticDataHigh = parseMarkdownDiagnostic(jsonContentHigh.text);
             
             assert.strictEqual(
                 diagnosticDataHigh.viewport_adjustments.zoom_factor,
@@ -354,7 +317,7 @@ test('Auto-center and zoom functionality', async (t) => {
 
             const resultLow = responseLow.result;
             const jsonContentLow = resultLow.content[2];
-            const diagnosticDataLow = JSON.parse(jsonContentLow.text);
+            const diagnosticDataLow = parseMarkdownDiagnostic(jsonContentLow.text);
             
             assert.strictEqual(
                 diagnosticDataLow.viewport_adjustments.zoom_factor,
@@ -382,7 +345,7 @@ test('Auto-center and zoom functionality', async (t) => {
 
             const result = response.result;
             const jsonContent = result.content[2];
-            const diagnosticData = JSON.parse(jsonContent.text);
+            const diagnosticData = parseMarkdownDiagnostic(jsonContent.text);
             
             // Verify zoom was applied
             assert.strictEqual(
@@ -391,10 +354,12 @@ test('Auto-center and zoom functionality', async (t) => {
                 'Zoom should work with CSS edits'
             );
             
-            // Verify CSS edits were applied
-            assert.ok(diagnosticData.applied_edits, 'Should have applied_edits');
+            // Verify CSS edits were applied - access through elements array
+            assert.ok(diagnosticData.elements && diagnosticData.elements.length > 0, 'Should have elements');
+            const element = diagnosticData.elements[0];
+            assert.ok(element.applied_edits, 'Should have applied_edits');
             assert.strictEqual(
-                diagnosticData.applied_edits['background-color'],
+                element.applied_edits['background-color'],
                 'red',
                 'CSS edit should be applied'
             );
@@ -417,7 +382,7 @@ test('Auto-center and zoom functionality', async (t) => {
 
             const result = response.result;
             const jsonContent = result.content[2];
-            const diagnosticData = JSON.parse(jsonContent.text);
+            const diagnosticData = parseMarkdownDiagnostic(jsonContent.text);
             
             // Should handle button element gracefully
             assert.ok(diagnosticData.viewport_adjustments, 'Should have viewport_adjustments');
@@ -439,14 +404,19 @@ test('Auto-center and zoom functionality', async (t) => {
 
             const singleResult = singleResponse.result;
             const singleJsonContent = singleResult.content[2];
-            const singleData = JSON.parse(singleJsonContent.text);
+            const singleData = parseMarkdownDiagnostic(singleJsonContent.text);
             
             // Validate single element structure
             assert.ok(singleData.viewport_adjustments, 'Single element should have viewport_adjustments');
             assert.ok('zoom_factor' in singleData.viewport_adjustments, 'Should have zoom_factor');
             assert.ok('centered' in singleData.viewport_adjustments, 'Should have centered');
             assert.ok('original_viewport' in singleData.viewport_adjustments, 'Should have original_viewport');
-            assert.ok('original_position' in singleData.viewport_adjustments, 'Should have original_position for single element');
+
+            assert.ok(
+                'original_positions' in singleData.viewport_adjustments &&
+                Array.isArray(singleData.viewport_adjustments.original_positions),
+                'Should have original_positions for single element'
+            );
             
             // Test multi-element structure
             const multiResponse = await mcpClient.callTool('inspect_element', {
@@ -457,7 +427,7 @@ test('Auto-center and zoom functionality', async (t) => {
 
             const multiResult = multiResponse.result;
             const multiJsonContent = multiResult.content[2];
-            const multiData = JSON.parse(multiJsonContent.text);
+            const multiData = parseMarkdownDiagnostic(multiJsonContent.text);
             
             // Validate multi-element structure
             assert.ok(multiData.viewport_adjustments, 'Multi element should have viewport_adjustments');
@@ -485,20 +455,5 @@ test('Auto-center and zoom functionality', async (t) => {
             }
         }
 
-        if (chromeProcess) {
-            try {
-                process.kill(chromeProcess.pid);
-            } catch (error) {
-                console.error('Error killing Chrome process:', error);
-            }
-        }
-
-        // Additional cleanup
-        try {
-            await execAsync('lsof -ti:9222 | xargs kill -9').catch(() => {});
-            await execAsync('rm -rf /tmp/chrome-test-*').catch(() => {});
-        } catch (error) {
-            // Ignore cleanup errors
-        }
     }
 });

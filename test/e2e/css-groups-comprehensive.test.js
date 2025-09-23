@@ -2,12 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { spawn, exec } from 'child_process';
-import { promisify } from 'util';
 import { createMCPClient } from '../helpers/mcp-client.js';
+import { parseMarkdownDiagnostic } from '../helpers/markdown-parser.js';
+import { killAllTestChromes } from '../helpers/chrome-test-helper.js';
+import '../helpers/global-cleanup.js'; // Register global cleanup handlers
 import fs from 'fs/promises';
-
-const execAsync = promisify(exec);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Custom test server that serves our comprehensive test HTML
@@ -61,37 +60,6 @@ async function createTestEnvironment() {
     await testServer.start();
     const testUrl = testServer.getUrl();
 
-    // Launch Chrome
-    const chromePort = 9230 + Math.floor(Math.random() * 100); // Random port to avoid conflicts
-    const userDataDir = `/tmp/chrome-css-test-${Date.now()}`;
-
-    const chromeProcess = spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
-        `--remote-debugging-port=${chromePort}`,
-        '--disable-gpu',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--window-size=1280,1024',
-        `--user-data-dir=${userDataDir}`,
-        testUrl
-    ], { stdio: 'ignore', detached: true });
-
-    // Wait for Chrome to be ready
-    let cdpReady = false;
-    let attempts = 0;
-    while (!cdpReady && attempts < 20) {
-        try {
-            const response = await fetch(`http://localhost:${chromePort}/json/version`);
-            cdpReady = response.ok;
-            if (!cdpReady) throw new Error('CDP not ready');
-        } catch (error) {
-            attempts++;
-            await new Promise(resolve => setTimeout(resolve, 500));
-        }
-    }
-
-    if (!cdpReady) {
-        throw new Error(`Chrome failed to start with CDP after ${attempts} attempts`);
-    }
 
     // Start MCP server
     const serverPath = join(__dirname, '..', '..', 'dist', 'index.js');
@@ -100,9 +68,6 @@ async function createTestEnvironment() {
     return {
         testServer,
         testUrl,
-        chromeProcess,
-        chromePort,
-        userDataDir,
         mcpClient
     };
 }
@@ -114,22 +79,8 @@ async function cleanupTestEnvironment(env) {
     if (env.testServer) {
         await env.testServer.stop();
     }
-    if (env.chromeProcess && !env.chromeProcess.killed) {
-        try {
-            process.kill(-env.chromeProcess.pid);
-        } catch (error) {
-            if (error.code !== 'ESRCH') {
-                console.error('Error killing Chrome process:', error);
-            }
-        }
-    }
-    
-    // Cleanup user data directory
-    try {
-        await execAsync(`rm -rf ${env.userDataDir}`).catch(() => {});
-    } catch (error) {
-        // Ignore cleanup errors
-    }
+    // Ensure all Chrome processes are killed
+    await killAllTestChromes();
 }
 
 test('Grid Properties Integration Test', async (t) => {
@@ -146,15 +97,18 @@ test('Grid Properties Integration Test', async (t) => {
         });
 
         assert.ok(gridResponse.result, 'Grid response should succeed');
-        const gridData = JSON.parse(gridResponse.result.content[2].text);
-        
-        assert.ok(gridData.grouped_styles, 'Should have grouped styles');
-        assert.ok(gridData.grouped_styles.grid, 'Should have grid group');
-        assert.ok(gridData.grouped_styles.layout, 'Should have layout group');
-        
+        const gridData = parseMarkdownDiagnostic(gridResponse.result.content[2].text);
+
+        assert.ok(gridData.elements && gridData.elements.length > 0, 'Should have elements array');
+        const gridElement = gridData.elements[0];
+
+        assert.ok(gridElement.grouped_styles, 'Should have grouped styles');
+        assert.ok(gridElement.grouped_styles.grid, 'Should have grid group');
+        assert.ok(gridElement.grouped_styles.layout, 'Should have layout group');
+
         // Check specific grid properties
-        const gridStyles = gridData.grouped_styles.grid;
-        const layoutStyles = gridData.grouped_styles.layout;
+        const gridStyles = gridElement.grouped_styles.grid;
+        const layoutStyles = gridElement.grouped_styles.layout;
         
         assert.strictEqual(layoutStyles['display'], 'grid', 'Should have display: grid');
         assert.ok(gridStyles['grid-template-columns'], 'Should have grid-template-columns');
@@ -175,9 +129,12 @@ test('Grid Properties Integration Test', async (t) => {
         });
         
         assert.ok(gridItemResponse.result, 'Grid item response should succeed');
-        const gridItemData = JSON.parse(gridItemResponse.result.content[2].text);
-        
-        const gridItemStyles = gridItemData.grouped_styles.grid;
+        const gridItemData = parseMarkdownDiagnostic(gridItemResponse.result.content[2].text);
+
+        assert.ok(gridItemData.elements && gridItemData.elements.length > 0, 'Should have elements array');
+        const gridItemElement = gridItemData.elements[0];
+
+        const gridItemStyles = gridItemElement.grouped_styles.grid;
         const hasGridPlacement = gridItemStyles['grid-area'] || 
                                 gridItemStyles['grid-column'] ||
                                 gridItemStyles['grid-column-start'] ||
@@ -216,13 +173,16 @@ test('Positioning Properties Integration Test', async (t) => {
             });
             
             assert.ok(response.result, `${testCase.selector} should succeed`);
-            const data = JSON.parse(response.result.content[2].text);
-            
-            assert.ok(data.grouped_styles.positioning, 'Should have positioning group');
-            assert.ok(data.grouped_styles.layout, 'Should have layout group');
-            
-            const positioningStyles = data.grouped_styles.positioning;
-            const layoutStyles = data.grouped_styles.layout;
+            const data = parseMarkdownDiagnostic(response.result.content[2].text);
+
+            assert.ok(data.elements && data.elements.length > 0, 'Should have elements array');
+            const element = data.elements[0];
+
+            assert.ok(element.grouped_styles.positioning, 'Should have positioning group');
+            assert.ok(element.grouped_styles.layout, 'Should have layout group');
+
+            const positioningStyles = element.grouped_styles.positioning;
+            const layoutStyles = element.grouped_styles.layout;
             
             assert.strictEqual(layoutStyles['position'], testCase.expectedPosition, 
                 `Should have correct position value for ${testCase.selector}`);
@@ -257,12 +217,15 @@ test('Custom Properties Integration Test', async (t) => {
         });
         
         assert.ok(customResponse.result, 'Custom properties response should succeed');
-        const customData = JSON.parse(customResponse.result.content[2].text);
-        
-        assert.ok(customData.grouped_styles, 'Should have grouped styles');
-        assert.ok(customData.grouped_styles.custom, 'Should have custom group');
-        
-        const customStyles = customData.grouped_styles.custom;
+        const customData = parseMarkdownDiagnostic(customResponse.result.content[2].text);
+
+        assert.ok(customData.elements && customData.elements.length > 0, 'Should have elements array');
+        const customElement = customData.elements[0];
+
+        assert.ok(customElement.grouped_styles, 'Should have grouped styles');
+        assert.ok(customElement.grouped_styles.custom, 'Should have custom group');
+
+        const customStyles = customElement.grouped_styles.custom;
         
         // Check for specific custom properties
         const expectedCustomProps = [
@@ -309,9 +272,12 @@ test('Essential Properties Override Test', async (t) => {
         });
         
         assert.ok(response.result, 'Essential properties test should succeed');
-        const data = JSON.parse(response.result.content[2].text);
-        
-        assert.ok(data.grouped_styles, 'Should have grouped styles');
+        const data = parseMarkdownDiagnostic(response.result.content[2].text);
+
+        assert.ok(data.elements && data.elements.length > 0, 'Should have elements array');
+        const element = data.elements[0];
+
+        assert.ok(element.grouped_styles, 'Should have grouped styles');
         
         // Essential properties should appear even though we only requested visual
         const essentialProperties = [
@@ -322,7 +288,7 @@ test('Essential Properties Override Test', async (t) => {
         let foundEssentials = 0;
         
         // Check all groups for essential properties
-        for (const [groupName, groupStyles] of Object.entries(data.grouped_styles)) {
+        for (const [groupName, groupStyles] of Object.entries(element.grouped_styles)) {
             for (const essential of essentialProperties) {
                 if (groupStyles[essential]) {
                     foundEssentials++;
@@ -334,8 +300,8 @@ test('Essential Properties Override Test', async (t) => {
         assert.ok(foundEssentials >= 5, `Should find at least 5 essential properties, found ${foundEssentials}`);
         
         // Verify we still have visual properties too
-        assert.ok(data.grouped_styles.visual, 'Should still have visual group');
-        const visualProps = Object.keys(data.grouped_styles.visual).length;
+        assert.ok(element.grouped_styles.visual, 'Should still have visual group');
+        const visualProps = Object.keys(element.grouped_styles.visual).length;
         assert.ok(visualProps > 0, 'Should have some visual properties');
         
         console.log(`✅ Essential properties override test passed (${foundEssentials} essential properties found)`);
@@ -359,14 +325,17 @@ test('Property Overlap Handling Test', async (t) => {
         });
         
         assert.ok(hybridResponse.result, 'Hybrid element test should succeed');
-        const hybridData = JSON.parse(hybridResponse.result.content[2].text);
-        
-        assert.ok(hybridData.grouped_styles.flexbox, 'Should have flexbox group');
-        assert.ok(hybridData.grouped_styles.grid, 'Should have grid group');
-        
+        const hybridData = parseMarkdownDiagnostic(hybridResponse.result.content[2].text);
+
+        assert.ok(hybridData.elements && hybridData.elements.length > 0, 'Should have elements array');
+        const hybridElement = hybridData.elements[0];
+
+        assert.ok(hybridElement.grouped_styles.flexbox, 'Should have flexbox group');
+        assert.ok(hybridElement.grouped_styles.grid, 'Should have grid group');
+
         // Look for properties that could appear in both groups
-        const flexboxStyles = hybridData.grouped_styles.flexbox;
-        const gridStyles = hybridData.grouped_styles.grid;
+        const flexboxStyles = hybridElement.grouped_styles.flexbox;
+        const gridStyles = hybridElement.grouped_styles.grid;
         
         // Properties like align-items, justify-content can appear in both
         const overlapProperties = ['align-items', 'justify-content', 'align-self', 'justify-self'];
@@ -404,11 +373,14 @@ test('Edge Cases Test', async (t) => {
             });
             
             assert.ok(response.result, 'Empty groups should work');
-            const data = JSON.parse(response.result.content[2].text);
-            
+            const data = parseMarkdownDiagnostic(response.result.content[2].text);
+
+            assert.ok(data.elements && data.elements.length > 0, 'Should have elements array');
+            const element = data.elements[0];
+
             // Should only have essential properties
             let totalProps = 0;
-            for (const group of Object.values(data.grouped_styles)) {
+            for (const group of Object.values(element.grouped_styles)) {
                 totalProps += Object.keys(group).length;
             }
             
@@ -428,7 +400,7 @@ test('Edge Cases Test', async (t) => {
             });
             
             assert.ok(response.result, 'All groups should work');
-            const data = JSON.parse(response.result.content[2].text);
+            const data = parseMarkdownDiagnostic(response.result.content[2].text);
             
             // Should have many properties but still filtered
             const stats = data.stats;
@@ -459,15 +431,17 @@ test('Edge Cases Test', async (t) => {
             assert.ok(filteredResponse.result, 'Filtered response should work');
             assert.ok(unfilteredResponse.result, 'Unfiltered response should work');
             
-            const filteredData = JSON.parse(filteredResponse.result.content[2].text);
-            const unfilteredData = JSON.parse(unfilteredResponse.result.content[2].text);
+            const filteredData = parseMarkdownDiagnostic(filteredResponse.result.content[2].text);
+            const unfilteredData = parseMarkdownDiagnostic(unfilteredResponse.result.content[2].text);
             
             // Compare response sizes
             const filteredSize = JSON.stringify(filteredResponse).length;
             const unfilteredSize = JSON.stringify(unfilteredResponse).length;
             
             const filteredPropCount = filteredData.stats?.filtered_properties || 0;
-            const unfilteredPropCount = Object.keys(unfilteredData.computed_styles).length;
+            // Handle both single-element and multi-element formats
+            const unfilteredComputedStyles = unfilteredData.computed_styles || unfilteredData.elements?.[0]?.computed_styles || {};
+            const unfilteredPropCount = Object.keys(unfilteredComputedStyles).length;
             
             assert.ok(filteredSize < unfilteredSize, 'Filtered response should be smaller');
             assert.ok(filteredPropCount < unfilteredPropCount, 'Filtered should have fewer properties');
@@ -490,11 +464,14 @@ test('Edge Cases Test', async (t) => {
             });
             
             assert.ok(response.result, 'Minimal element should work');
-            const data = JSON.parse(response.result.content[2].text);
-            
+            const data = parseMarkdownDiagnostic(response.result.content[2].text);
+
+            assert.ok(data.elements && data.elements.length > 0, 'Should have elements array');
+            const element = data.elements[0];
+
             // Even minimal elements should have essential properties
             let totalProps = 0;
-            for (const group of Object.values(data.grouped_styles)) {
+            for (const group of Object.values(element.grouped_styles)) {
                 totalProps += Object.keys(group).length;
             }
             

@@ -2,36 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import { createMCPClient } from '../helpers/mcp-client.js';
 import { createTestServer } from '../helpers/chrome-test-server.js';
-
-const execAsync = promisify(exec);
+import { parseMarkdownDiagnostic } from '../helpers/markdown-parser.js';
+import { killAllTestChromes } from '../helpers/chrome-test-helper.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-async function killAllChrome() {
-    try {
-        // Kill any existing Chrome instances to ensure clean test
-        await execAsync('pkill -f "chrome.*remote-debugging"').catch(() => {});
-        await execAsync('pkill -f "Google Chrome"').catch(() => {});
-        await execAsync('pkill -f "chromium"').catch(() => {});
-        
-        // Give processes time to exit
-        await new Promise(resolve => setTimeout(resolve, 2000));
-    } catch (error) {
-        // Ignore errors - processes might not exist
-    }
-}
+// Helper function is now imported from chrome-test-helper.js
 
 test('Auto-launch Chrome when none available', async (t) => {
     let testServer = null;
     let mcpClient = null;
 
     try {
-        // Ensure no Chrome instances with CDP are running
-        await killAllChrome();
-        console.log('Killed existing Chrome instances');
+        // Ensure no test Chrome instances are running
+        await killAllTestChromes();
+        console.log('Killed existing test Chrome instances');
 
         // Start test server
         testServer = await createTestServer();
@@ -65,19 +51,14 @@ test('Auto-launch Chrome when none available', async (t) => {
             // If we get a success, Chrome was launched and we can inspect elements
             assert.ok(inspectionResponse.result, 'Should successfully inspect with auto-launched Chrome');
             assert.ok(inspectionResponse.result.content[1].type === 'image', 'Should include screenshot');
-            const diagnosticData = JSON.parse(inspectionResponse.result.content[2].text);
-            assert.ok(diagnosticData.grouped_styles, 'Should include grouped styles');
-            assert.ok(diagnosticData.box_model, 'Should include box model');
+            const diagnosticData = parseMarkdownDiagnostic(inspectionResponse.result.content[2].text);
+            assert.ok(diagnosticData.elements && diagnosticData.elements.length > 0, 'Should have elements array');
+            const element = diagnosticData.elements[0];
+            assert.ok(element.grouped_styles, 'Should include grouped styles');
+            assert.ok(element.box_model, 'Should include box model');
         }
 
-        // Verify that Chrome was indeed launched by checking if we can find a Chrome process
-        try {
-            const { stdout } = await execAsync('pgrep -f "Google Chrome.*remote-debugging"');
-            assert.ok(stdout.trim().length > 0, 'Chrome process should be running');
-            console.log('✅ Verified Chrome process is running with remote debugging');
-        } catch (error) {
-            console.warn('Could not verify Chrome process, but inspection succeeded');
-        }
+        // Note: Chrome auto-launch verification is handled by the successful inspection response
 
         console.log('✅ Auto-launch Chrome test passed');
 
@@ -90,7 +71,5 @@ test('Auto-launch Chrome when none available', async (t) => {
             await testServer.stop();
         }
         
-        // Clean up auto-launched Chrome instances
-        await killAllChrome();
     }
 });

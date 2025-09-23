@@ -2,66 +2,23 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { spawn, exec } from 'child_process';
-import { promisify } from 'util';
 import { createMCPClient } from '../helpers/mcp-client.js';
 import { createTestServer } from '../helpers/chrome-test-server.js';
-
-const execAsync = promisify(exec);
+import { parseMarkdownDiagnostic } from '../helpers/markdown-parser.js';
+import { killAllTestChromes } from '../helpers/chrome-test-helper.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 test('Property groups functionality', async (t) => {
     let testServer = null;
     let mcpClient = null;
-    let chromeProcess = null;
 
     try {
-        // Kill any existing Chrome on port 9226 and clean user data
-        try {
-            await execAsync('lsof -ti:9226 | xargs kill -9').catch(() => {});
-            await execAsync('rm -rf /tmp/chrome-test-9226').catch(() => {});
-            await new Promise(resolve => setTimeout(resolve, 2000));
-        } catch (error) {
-            // Ignore cleanup errors
-        }
-        
         // Start test server
         testServer = await createTestServer();
         const testUrl = testServer.getUrl();
         console.log(`Test page available at: ${testUrl}`);
 
-        // Launch Chrome with test page
-        chromeProcess = spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
-            '--remote-debugging-port=9226',
-            '--disable-gpu',
-            '--no-first-run',
-            '--no-default-browser-check',
-            '--window-size=1280,1024',
-            '--user-data-dir=/tmp/chrome-test-9226',
-            testUrl
-        ], { stdio: 'ignore', detached: true });
 
-        // Wait for Chrome to start and CDP to be available
-        let cdpReady = false;
-        let attempts = 0;
-        while (!cdpReady && attempts < 15) {
-            try {
-                const response = await fetch('http://localhost:9226/json/version');
-                cdpReady = response.ok;
-                if (cdpReady) {
-                    console.log('Chrome CDP ready on port 9226');
-                } else {
-                    throw new Error('CDP not ready');
-                }
-            } catch (error) {
-                attempts++;
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-        }
-        
-        if (!cdpReady) {
-            throw new Error('Chrome failed to start with CDP after 15 seconds');
-        }
 
         // Start MCP server
         const serverPath = join(__dirname, '..', '..', 'dist', 'index.js');
@@ -75,13 +32,16 @@ test('Property groups functionality', async (t) => {
         });
 
         assert.ok(defaultResponse.result, 'Default groups should work');
-        const defaultData = JSON.parse(defaultResponse.result.content[2].text);
-        
-        assert.ok(defaultData.grouped_styles, 'Should have grouped styles');
-        assert.ok(defaultData.grouped_styles.layout, 'Should have layout group');
-        assert.ok(defaultData.grouped_styles.box, 'Should have box group');
-        assert.ok(defaultData.grouped_styles.typography, 'Should have typography group');
-        assert.ok(defaultData.grouped_styles.colors, 'Should have colors group');
+        const defaultData = parseMarkdownDiagnostic(defaultResponse.result.content[2].text);
+
+        assert.ok(defaultData.elements && defaultData.elements.length > 0, 'Should have elements array');
+        const defaultElement = defaultData.elements[0];
+
+        assert.ok(defaultElement.grouped_styles, 'Should have grouped styles');
+        assert.ok(defaultElement.grouped_styles.layout, 'Should have layout group');
+        assert.ok(defaultElement.grouped_styles.box, 'Should have box group');
+        assert.ok(defaultElement.grouped_styles.typography, 'Should have typography group');
+        assert.ok(defaultElement.grouped_styles.colors, 'Should have colors group');
         
         // Should have filtering stats
         assert.ok(defaultData.stats, 'Should have filtering summary');
@@ -99,15 +59,18 @@ test('Property groups functionality', async (t) => {
         });
 
         assert.ok(specificResponse.result, 'Specific groups should work');
-        const specificData = JSON.parse(specificResponse.result.content[2].text);
-        
-        assert.ok(specificData.grouped_styles, 'Should have grouped styles');
-        assert.ok(specificData.grouped_styles.colors, 'Should have colors group');
-        assert.ok(specificData.grouped_styles.typography, 'Should have typography group');
-        
+        const specificData = parseMarkdownDiagnostic(specificResponse.result.content[2].text);
+
+        assert.ok(specificData.elements && specificData.elements.length > 0, 'Should have elements array');
+        const specificElement = specificData.elements[0];
+
+        assert.ok(specificElement.grouped_styles, 'Should have grouped styles');
+        assert.ok(specificElement.grouped_styles.colors, 'Should have colors group');
+        assert.ok(specificElement.grouped_styles.typography, 'Should have typography group');
+
         // Should not have many properties in other groups (some essential properties might still be included)
-        const layoutProps = Object.keys(specificData.grouped_styles.layout || {}).length;
-        const boxProps = Object.keys(specificData.grouped_styles.box || {}).length;
+        const layoutProps = Object.keys(specificElement.grouped_styles.layout || {}).length;
+        const boxProps = Object.keys(specificElement.grouped_styles.box || {}).length;
         
         // Essential properties might still be included, so we check for significantly fewer
         assert.ok(layoutProps <= 5, `Should have minimal layout properties, got ${layoutProps}`);
@@ -124,13 +87,16 @@ test('Property groups functionality', async (t) => {
         });
 
         assert.ok(allPropsResponse.result, 'All groups should work');
-        const allPropsData = JSON.parse(allPropsResponse.result.content[2].text);
-        
+        const allPropsData = parseMarkdownDiagnostic(allPropsResponse.result.content[2].text);
+
+        assert.ok(allPropsData.elements && allPropsData.elements.length > 0, 'Should have elements array');
+        const allPropsElement = allPropsData.elements[0];
+
         // With all groups, should have comprehensive computed_styles
-        assert.ok(allPropsData.computed_styles, 'Should have computed_styles with all groups');
-        
+        assert.ok(allPropsElement.computed_styles, 'Should have computed_styles with all groups');
+
         // Should have significantly more properties than filtered version
-        const allPropsCount = Object.keys(allPropsData.computed_styles).length;
+        const allPropsCount = Object.keys(allPropsElement.computed_styles).length;
         const filteredCount = defaultData.stats.filtered_properties;
         assert.ok(allPropsCount > filteredCount, 
             `All properties (${allPropsCount}) should be more than filtered (${filteredCount})`);
@@ -146,10 +112,13 @@ test('Property groups functionality', async (t) => {
         });
 
         assert.ok(visualResponse.result, 'Visual group should work');
-        const visualData = JSON.parse(visualResponse.result.content[2].text);
-        
-        assert.ok(visualData.grouped_styles, 'Should have grouped styles');
-        assert.ok(visualData.grouped_styles.visual || Object.keys(visualData.grouped_styles.visual || {}).length >= 0, 
+        const visualData = parseMarkdownDiagnostic(visualResponse.result.content[2].text);
+
+        assert.ok(visualData.elements && visualData.elements.length > 0, 'Should have elements array');
+        const visualElement = visualData.elements[0];
+
+        assert.ok(visualElement.grouped_styles, 'Should have grouped styles');
+        assert.ok(visualElement.grouped_styles.visual || Object.keys(visualElement.grouped_styles.visual || {}).length >= 0,
             'Should have visual group');
         
         console.log('✅ Visual effects group works');
@@ -163,11 +132,10 @@ test('Property groups functionality', async (t) => {
         });
 
         assert.ok(flexboxResponse.result, 'Flexbox group should work');
-        const flexboxData = JSON.parse(flexboxResponse.result.content[2].text);
-        
-        // Handle both single and multi-element responses
-        const isMultiElement = flexboxData.elements !== undefined;
-        const elementData = isMultiElement ? flexboxData.elements[0] : flexboxData;
+        const flexboxData = parseMarkdownDiagnostic(flexboxResponse.result.content[2].text);
+
+        assert.ok(flexboxData.elements && flexboxData.elements.length > 0, 'Should have elements array');
+        const elementData = flexboxData.elements[0];
         
         assert.ok(elementData.grouped_styles, 'Should have grouped styles');
         
@@ -182,10 +150,13 @@ test('Property groups functionality', async (t) => {
         });
 
         assert.ok(invalidResponse.result, 'Should work even with invalid group names');
-        const invalidData = JSON.parse(invalidResponse.result.content[2].text);
-        
-        assert.ok(invalidData.grouped_styles, 'Should still have grouped styles');
-        assert.ok(invalidData.grouped_styles.colors, 'Should still have valid groups');
+        const invalidData = parseMarkdownDiagnostic(invalidResponse.result.content[2].text);
+
+        assert.ok(invalidData.elements && invalidData.elements.length > 0, 'Should have elements array');
+        const invalidElement = invalidData.elements[0];
+
+        assert.ok(invalidElement.grouped_styles, 'Should still have grouped styles');
+        assert.ok(invalidElement.grouped_styles.colors, 'Should still have valid groups');
         
         console.log('✅ Gracefully handles invalid group names');
 
@@ -198,23 +169,6 @@ test('Property groups functionality', async (t) => {
         }
         if (testServer) {
             await testServer.stop();
-        }
-        if (chromeProcess && !chromeProcess.killed) {
-            try {
-                process.kill(-chromeProcess.pid);
-            } catch (error) {
-                if (error.code !== 'ESRCH') {
-                    console.error('Error killing Chrome process:', error);
-                }
-            }
-        }
-        
-        // Ensure ALL Chrome processes are killed to prevent test interference
-        try {
-            await execAsync('pkill -f "Google Chrome"').catch(() => {});
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        } catch (error) {
-            // Ignore cleanup errors
         }
     }
 });

@@ -2,66 +2,23 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { spawn, exec } from 'child_process';
-import { promisify } from 'util';
 import { createMCPClient } from '../helpers/mcp-client.js';
 import { createTestServer } from '../helpers/chrome-test-server.js';
-
-const execAsync = promisify(exec);
+import { parseMarkdownDiagnostic } from '../helpers/markdown-parser.js';
+import { killAllTestChromes } from '../helpers/chrome-test-helper.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 test('Complex CSS selectors', async (t) => {
     let testServer = null;
     let mcpClient = null;
-    let chromeProcess = null;
 
     try {
-        // Kill any existing Chrome on port 9225 and clean user data
-        try {
-            await execAsync('lsof -ti:9225 | xargs kill -9').catch(() => {});
-            await execAsync('rm -rf /tmp/chrome-test-9225').catch(() => {});
-            await new Promise(resolve => setTimeout(resolve, 2000));
-        } catch (error) {
-            // Ignore cleanup errors
-        }
-        
         // Start test server
         testServer = await createTestServer();
         const testUrl = testServer.getUrl();
         console.log(`Test page available at: ${testUrl}`);
 
-        // Launch Chrome with test page
-        chromeProcess = spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
-            '--remote-debugging-port=9225',
-            '--disable-gpu',
-            '--no-first-run',
-            '--no-default-browser-check',
-            '--window-size=1280,1024',
-            '--user-data-dir=/tmp/chrome-test-9225',
-            testUrl
-        ], { stdio: 'ignore', detached: true });
 
-        // Wait for Chrome to start and CDP to be available
-        let cdpReady = false;
-        let attempts = 0;
-        while (!cdpReady && attempts < 15) {
-            try {
-                const response = await fetch('http://localhost:9225/json/version');
-                cdpReady = response.ok;
-                if (cdpReady) {
-                    console.log('Chrome CDP ready on port 9225');
-                } else {
-                    throw new Error('CDP not ready');
-                }
-            } catch (error) {
-                attempts++;
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-        }
-        
-        if (!cdpReady) {
-            throw new Error('Chrome failed to start with CDP after 15 seconds');
-        }
 
         // Start MCP server
         const serverPath = join(__dirname, '..', '..', 'dist', 'index.js');
@@ -126,13 +83,13 @@ test('Complex CSS selectors', async (t) => {
             assert.ok(response.result.content[2], `${testCase.name} should have third content item`);
             assert.ok(response.result.content[2].text, `${testCase.name} should have text in third content item`);
             
-            const diagnosticData = JSON.parse(response.result.content[2].text);
+            const diagnosticData = parseMarkdownDiagnostic(response.result.content[2].text);
             assert.ok(response.result.content[1].type === 'image', `${testCase.name} should include screenshot`);
-            
-            // Handle both single and multi-element responses
-            const isMultiElement = diagnosticData.elements !== undefined;
-            const elementData = isMultiElement ? diagnosticData.elements[0] : diagnosticData;
-            
+
+            // All responses should use multi-element format
+            assert.ok(diagnosticData.elements && diagnosticData.elements.length > 0, 'Should have elements array');
+            const elementData = diagnosticData.elements[0];
+
             assert.ok(elementData.grouped_styles, `${testCase.name} should include grouped styles`);
             assert.ok(elementData.box_model, `${testCase.name} should include box model`);
 
@@ -166,9 +123,9 @@ test('Complex CSS selectors', async (t) => {
         });
 
         assert.ok(compoundResponse.result, 'Compound selector should work');
-        const compoundData = JSON.parse(compoundResponse.result.content[2].text);
+        const compoundData = parseMarkdownDiagnostic(compoundResponse.result.content[2].text);
         // Find background-color in colors group
-        const backgroundColor = compoundData.grouped_styles.colors['background-color'];
+        const backgroundColor = compoundData.elements[0].grouped_styles.colors['background-color'];
         assert.strictEqual(
             backgroundColor,
             'rgb(52, 168, 83)',
@@ -188,8 +145,10 @@ test('Complex CSS selectors', async (t) => {
 
         assert.ok(preciseBoxResponse.result, 'Precise box selector should work');
         
-        const preciseData = JSON.parse(preciseBoxResponse.result.content[2].text);
-        const boxModel = preciseData.box_model;
+        const preciseData = parseMarkdownDiagnostic(preciseBoxResponse.result.content[2].text);
+        assert.ok(preciseData.elements && preciseData.elements.length > 0, 'Should have elements array');
+        const element = preciseData.elements[0];
+        const boxModel = element.box_model;
         
         // Verify box model dimensions
         // Content box should be 200x100
@@ -215,23 +174,6 @@ test('Complex CSS selectors', async (t) => {
         }
         if (testServer) {
             await testServer.stop();
-        }
-        if (chromeProcess && !chromeProcess.killed) {
-            try {
-                process.kill(-chromeProcess.pid);
-            } catch (error) {
-                if (error.code !== 'ESRCH') {
-                    console.error('Error killing Chrome process:', error);
-                }
-            }
-        }
-        
-        // Ensure ALL Chrome processes are killed to prevent test interference
-        try {
-            await execAsync('pkill -f "Google Chrome"').catch(() => {});
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        } catch (error) {
-            // Ignore cleanup errors
         }
     }
 });

@@ -6,6 +6,8 @@ import { spawn, exec } from 'child_process';
 import { promisify } from 'util';
 import { createMCPClient } from '../helpers/mcp-client.js';
 import { createTestServer } from '../helpers/chrome-test-server.js';
+import { parseMarkdownDiagnostic } from '../helpers/markdown-parser.js';
+import { killAllTestChromes } from '../helpers/chrome-test-helper.js';
 
 const execAsync = promisify(exec);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -13,7 +15,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 test('URL navigation handling', async (t) => {
     let testServer = null;
     let mcpClient = null;
-    let chromeProcess = null;
 
     try {
         // Kill any existing Chrome on port 9224 and clean user data
@@ -30,39 +31,8 @@ test('URL navigation handling', async (t) => {
         const testUrl = testServer.getUrl();
         console.log(`Test page available at: ${testUrl}`);
 
-        // Launch Chrome with multiple tabs
-        chromeProcess = spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
-            '--remote-debugging-port=9224',
-            '--disable-gpu',
-            '--no-first-run',
-            '--no-default-browser-check',
-            '--window-size=1280,1024',
-            '--user-data-dir=/tmp/chrome-test-9224',
-            testUrl,
-            'https://example.com'
-        ], { stdio: 'ignore', detached: true });
+        // Launch Chrome with test page using helper
 
-        // Wait for Chrome to start and CDP to be available
-        let cdpReady = false;
-        let attempts = 0;
-        while (!cdpReady && attempts < 15) {
-            try {
-                const response = await fetch('http://localhost:9224/json/version');
-                cdpReady = response.ok;
-                if (cdpReady) {
-                    console.log('Chrome CDP ready on port 9224');
-                } else {
-                    throw new Error('CDP not ready');
-                }
-            } catch (error) {
-                attempts++;
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-        }
-        
-        if (!cdpReady) {
-            throw new Error('Chrome failed to start with CDP after 15 seconds');
-        }
         
         // Give extra time for both tabs to load their content
         await new Promise(resolve => setTimeout(resolve, 3000));
@@ -91,8 +61,10 @@ test('URL navigation handling', async (t) => {
 
         assert.ok(inspectionResponse.result, 'Should successfully inspect with correct target');
         assert.ok(inspectionResponse.result.content[1].type === 'image', 'Should include screenshot');
-        const inspectionData = JSON.parse(inspectionResponse.result.content[2].text);
-        assert.ok(inspectionData.grouped_styles, 'Should include grouped styles');
+        const inspectionData = parseMarkdownDiagnostic(inspectionResponse.result.content[2].text);
+        assert.ok(inspectionData.elements && inspectionData.elements.length > 0, 'Should have elements array');
+        const element = inspectionData.elements[0];
+        assert.ok(element.grouped_styles, 'Should include grouped styles');
 
         // Test 3: Try with invalid URL format
         const wrongTargetResponse = await mcpClient.callTool('inspect_element', {
@@ -126,23 +98,6 @@ test('URL navigation handling', async (t) => {
         }
         if (testServer) {
             await testServer.stop();
-        }
-        if (chromeProcess && !chromeProcess.killed) {
-            try {
-                process.kill(-chromeProcess.pid);
-            } catch (error) {
-                if (error.code !== 'ESRCH') {
-                    console.error('Error killing Chrome process:', error);
-                }
-            }
-        }
-        
-        // Ensure ALL Chrome processes are killed to prevent test interference
-        try {
-            await execAsync('pkill -f "Google Chrome"').catch(() => {});
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        } catch (error) {
-            // Ignore cleanup errors
         }
     }
 });
