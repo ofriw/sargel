@@ -6,8 +6,9 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export class TestServer {
-    constructor(port = 0) {
+    constructor(port = 0, fixturePath = null) {
         this.port = port;
+        this.fixturePath = fixturePath;
         this.server = null;
         this.actualPort = null;
     }
@@ -16,8 +17,8 @@ export class TestServer {
         return new Promise((resolve, reject) => {
             this.server = http.createServer(async (req, res) => {
                 try {
-                    // Serve test-page.html for all requests
-                    const filePath = join(__dirname, '..', 'fixtures', 'test-page.html');
+                    // Serve custom fixture or default test-page.html
+                    const filePath = this.fixturePath || join(__dirname, '..', 'fixtures', 'test-page.html');
                     const content = await readFile(filePath, 'utf-8');
                     
                     res.writeHead(200, {
@@ -61,8 +62,9 @@ export class TestServer {
     }
 }
 
-export async function createTestServer(port = 0) {
-    const server = new TestServer(port);
+export async function createTestServer(options = {}) {
+    const { port = 0, fixturePath = null } = options;
+    const server = new TestServer(port, fixturePath);
     await server.start();
     return server;
 }

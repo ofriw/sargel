@@ -173,6 +173,7 @@ test('Positioning Properties Integration Test', async (t) => {
             });
             
             assert.ok(response.result, `${testCase.selector} should succeed`);
+            assert.ok(!response.result.isError, `Inspection failed: ${response.result.content?.[0]?.text || 'Unknown error'}`);
             const data = parseMarkdownDiagnostic(response.result.content[2].text);
 
             assert.ok(data.elements && data.elements.length > 0, 'Should have elements array');
@@ -272,6 +273,7 @@ test('Essential Properties Override Test', async (t) => {
         });
         
         assert.ok(response.result, 'Essential properties test should succeed');
+        assert.ok(!response.result.isError, `Inspection failed: ${response.result.content?.[0]?.text || 'Unknown error'}`);
         const data = parseMarkdownDiagnostic(response.result.content[2].text);
 
         assert.ok(data.elements && data.elements.length > 0, 'Should have elements array');
@@ -325,6 +327,7 @@ test('Property Overlap Handling Test', async (t) => {
         });
         
         assert.ok(hybridResponse.result, 'Hybrid element test should succeed');
+        assert.ok(!hybridResponse.result.isError, `Inspection failed: ${hybridResponse.result.content[0]?.text || 'Unknown error'}`);
         const hybridData = parseMarkdownDiagnostic(hybridResponse.result.content[2].text);
 
         assert.ok(hybridData.elements && hybridData.elements.length > 0, 'Should have elements array');
@@ -367,12 +370,13 @@ test('Edge Cases Test', async (t) => {
             console.log('Testing empty property groups...');
             
             const response = await env.mcpClient.callTool('inspect_element', {
-                css_selector: '#complex-element',
+                css_selector: '#minimal-element',
                 url: env.testUrl,
                 property_groups: [] // Empty array
             });
-            
+
             assert.ok(response.result, 'Empty groups should work');
+            assert.ok(!response.result.isError, `Inspection failed: ${response.result.content?.[0]?.text || 'Unknown error'}`);
             const data = parseMarkdownDiagnostic(response.result.content[2].text);
 
             assert.ok(data.elements && data.elements.length > 0, 'Should have elements array');
@@ -400,6 +404,7 @@ test('Edge Cases Test', async (t) => {
             });
             
             assert.ok(response.result, 'All groups should work');
+            assert.ok(!response.result.isError, `Inspection failed: ${response.result.content?.[0]?.text || 'Unknown error'}`);
             const data = parseMarkdownDiagnostic(response.result.content[2].text);
             
             // Should have many properties but still filtered
@@ -464,6 +469,7 @@ test('Edge Cases Test', async (t) => {
             });
             
             assert.ok(response.result, 'Minimal element should work');
+            assert.ok(!response.result.isError, `Inspection failed: ${response.result.content?.[0]?.text || 'Unknown error'}`);
             const data = parseMarkdownDiagnostic(response.result.content[2].text);
 
             assert.ok(data.elements && data.elements.length > 0, 'Should have elements array');

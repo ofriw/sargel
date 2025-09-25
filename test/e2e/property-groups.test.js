@@ -32,6 +32,7 @@ test('Property groups functionality', async (t) => {
         });
 
         assert.ok(defaultResponse.result, 'Default groups should work');
+        assert.ok(!defaultResponse.result.isError, `Inspection failed: ${defaultResponse.result.content[0]?.text || 'Unknown error'}`);
         const defaultData = parseMarkdownDiagnostic(defaultResponse.result.content[2].text);
 
         assert.ok(defaultData.elements && defaultData.elements.length > 0, 'Should have elements array');
