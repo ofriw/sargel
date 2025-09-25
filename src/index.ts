@@ -4,7 +4,10 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { inspectElement } from './inspect-element.js';
-import type { InspectElementArgs } from './config/types.js';
+import { clickElement } from './click-element.js';
+import { parseSelector } from './browser/selector-utils.js';
+import type { InspectElementArgs, ClickElementArgs } from './config/types.js';
+
 
 function formatInspectionResult(result: any): string {
   let markdown = '';
@@ -104,6 +107,28 @@ function formatElementCompact(element: any): string {
   return markdown;
 }
 
+function formatClickResponse(result: any): string {
+  let clickText = `Clicked element: ${result.clicked_element.selector} at (${result.clicked_element.coordinates.x}, ${result.clicked_element.coordinates.y})`;
+
+  if (result.matched_elements && result.matched_elements.total > 1) {
+    const { selector } = parseSelector(result.clicked_element.selector);
+    clickText += `\n\nFound ${result.matched_elements.total} elements matching "${selector}":`;
+
+    result.matched_elements.elements.forEach((element: any, i: number) => {
+      const isClicked = i === result.clicked_element.index;
+      const arrow = isClicked ? ' ← clicked' : '';
+      const text = element.text ? `: "${element.text}"` : '';
+      clickText += `\n- ${element.selector}${text}${arrow}`;
+    });
+
+    if (result.matched_elements.total > result.matched_elements.elements.length) {
+      const remaining = result.matched_elements.total - result.matched_elements.elements.length;
+      clickText += `\n- ... and ${remaining} more element${remaining > 1 ? 's' : ''}`;
+    }
+  }
+
+  return clickText;
+}
 
 const server = new Server(
   {
@@ -158,7 +183,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               default: true
             },
             autoZoom: {
-              type: 'boolean', 
+              type: 'boolean',
               description: `Auto-adjusts zoom for optimal element size. Default: true.`,
               default: true
             },
@@ -172,6 +197,24 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['css_selector', 'url'],
         },
       },
+      {
+        name: 'click_element',
+        description: `Clicks on a specific element and returns a screenshot. Supports element indexing with square brackets [0] to match specific elements from multi-element selectors.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            css_selector: {
+              type: 'string',
+              description: `CSS selector for target element. Supports indexing with square brackets like "button[0]" to click the first button. If no index is specified, clicks the first matching element.`,
+            },
+            url: {
+              type: 'string',
+              description: 'Full webpage URL including protocol (https://, http://).',
+            }
+          },
+          required: ['css_selector', 'url'],
+        },
+      },
     ],
   };
 });
@@ -179,74 +222,126 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
-  if (name !== 'inspect_element') {
+  if (name === 'inspect_element') {
+    try {
+      const typedArgs = args as Record<string, unknown>;
+
+      // Validate and convert arguments
+      const inspectArgs: InspectElementArgs = {
+        css_selector: typedArgs.css_selector as string,
+        url: typedArgs.url as string,
+        property_groups: typedArgs.property_groups as string[] | undefined,
+        css_edits: typedArgs.css_edits as Record<string, string> | undefined,
+        limit: typedArgs.limit as number | undefined,
+        autoCenter: typedArgs.autoCenter as boolean | undefined,
+        autoZoom: typedArgs.autoZoom as boolean | undefined,
+        zoomFactor: typedArgs.zoomFactor as number | undefined
+      };
+
+      // Validate required arguments
+      if (!inspectArgs.css_selector) {
+        throw new Error('css_selector is required');
+      }
+      if (!inspectArgs.url) {
+        throw new Error('url is required');
+      }
+
+      const result = await inspectElement(inspectArgs);
+
+      // Extract base64 data from data URL for image block
+      const base64Data = result.screenshot.replace(/^data:image\/png;base64,/, '');
+
+      const elementText = result.elements.length > 1
+        ? `Inspected ${result.elements.length} elements: ${inspectArgs.css_selector}`
+        : `Inspected element: ${inspectArgs.css_selector}`;
+
+      const markdownOutput = formatInspectionResult(result);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: elementText
+          },
+          {
+            type: 'image',
+            data: base64Data,
+            mimeType: 'image/png'
+          },
+          {
+            type: 'text',
+            text: markdownOutput
+          }
+        ]
+      };
+
+    } catch (error) {
+      console.error('Inspection error:', error);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  } else if (name === 'click_element') {
+    try {
+      const typedArgs = args as Record<string, unknown>;
+
+      // Validate and convert arguments
+      const clickArgs: ClickElementArgs = {
+        css_selector: typedArgs.css_selector as string,
+        url: typedArgs.url as string,
+      };
+
+      // Validate required arguments
+      if (!clickArgs.css_selector) {
+        throw new Error('css_selector is required');
+      }
+      if (!clickArgs.url) {
+        throw new Error('url is required');
+      }
+
+      const result = await clickElement(clickArgs);
+
+      // Extract base64 data from data URL for image block
+      const base64Data = result.screenshot.replace(/^data:image\/png;base64,/, '');
+
+      const clickText = formatClickResponse(result);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: clickText
+          },
+          {
+            type: 'image',
+            data: base64Data,
+            mimeType: 'image/png'
+          }
+        ]
+      };
+
+    } catch (error) {
+      console.error('Click error:', error);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  } else {
     throw new Error(`Unknown tool: ${name}`);
-  }
-
-  try {
-    const typedArgs = args as Record<string, unknown>;
-    
-    // Validate and convert arguments
-    const inspectArgs: InspectElementArgs = {
-      css_selector: typedArgs.css_selector as string,
-      url: typedArgs.url as string,
-      property_groups: typedArgs.property_groups as string[] | undefined,
-      css_edits: typedArgs.css_edits as Record<string, string> | undefined,
-      limit: typedArgs.limit as number | undefined,
-      autoCenter: typedArgs.autoCenter as boolean | undefined,
-      autoZoom: typedArgs.autoZoom as boolean | undefined,
-      zoomFactor: typedArgs.zoomFactor as number | undefined
-    };
-    
-    // Validate required arguments
-    if (!inspectArgs.css_selector) {
-      throw new Error('css_selector is required');
-    }
-    if (!inspectArgs.url) {
-      throw new Error('url is required');
-    }
-    
-    const result = await inspectElement(inspectArgs);
-    
-    // Extract base64 data from data URL for image block
-    const base64Data = result.screenshot.replace(/^data:image\/png;base64,/, '');
-    
-    const elementText = result.elements.length > 1
-      ? `Inspected ${result.elements.length} elements: ${inspectArgs.css_selector}`
-      : `Inspected element: ${inspectArgs.css_selector}`;
-
-    const markdownOutput = formatInspectionResult(result);
-    
-    return {
-      content: [
-        {
-          type: 'text',
-          text: elementText
-        },
-        {
-          type: 'image',
-          data: base64Data,
-          mimeType: 'image/png'
-        },
-        {
-          type: 'text',
-          text: markdownOutput
-        }
-      ]
-    };
-    
-  } catch (error) {
-    console.error('Inspection error:', error);
-    
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-        },
-      ],
-      isError: true,
-    };
   }
 });
 

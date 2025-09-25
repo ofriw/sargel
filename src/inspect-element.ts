@@ -7,6 +7,7 @@ import {
   type PropertyGroup
 } from './css/property-groups.js';
 import { BrowserScripts } from './browser/browser-scripts.js';
+import { getDocumentWithRetry, cleanupInspectIds } from './browser/element-operations.js';
 import { Jimp } from 'jimp';
 import {
   FONT_CONFIG,
@@ -667,27 +668,7 @@ export async function inspectElement(args: InspectElementArgs): Promise<MultiIns
     await cdp.send('Overlay.enable');
     
     // Get document with retry logic
-    let doc;
-    let attempts = 0;
-    const maxAttempts = 3;
-    
-    while (attempts < maxAttempts) {
-      try {
-        doc = await cdp.send('DOM.getDocument');
-        if (doc && doc.root && doc.root.nodeId) {
-          break;
-        } else {
-          throw new Error('Document root is empty or invalid');
-        }
-      } catch (error) {
-        attempts++;
-        if (attempts >= maxAttempts) {
-          throw new Error(`Failed to get document after ${maxAttempts} attempts: ${error}`);
-        }
-        // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, 500 * attempts));
-      }
-    }
+    const doc = await getDocumentWithRetry(cdp);
 
     // Find all matching elements using Runtime.evaluate
     // Note: We use temporary data-inspect-id attributes to handle complex selectors
@@ -737,13 +718,7 @@ export async function inspectElement(args: InspectElementArgs): Promise<MultiIns
     
   } finally {
     // Clean up all data-inspect-id attributes before closing CDP
-    try {
-      await cdp.send('Runtime.evaluate', {
-        expression: BrowserScripts.cleanupInspectIds()
-      });
-    } catch (cleanupError) {
-      console.warn('Failed to clean up data-inspect-id attributes:', cleanupError);
-    }
+    await cleanupInspectIds(cdp);
     cdp.close();
   }
 }
