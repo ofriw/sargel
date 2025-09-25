@@ -179,6 +179,55 @@ export const BrowserScripts = {
   `,
 
   /**
+   * Gets click coordinates for an element (center of bounding box)
+   */
+  getClickCoordinates: (uniqueId: string) => `
+    (function() {
+      const element = document.querySelector('[data-inspect-id="${uniqueId}"]');
+      if (!element) return { error: 'Element not found' };
+
+      const rect = element.getBoundingClientRect();
+
+      // Check if element is visible
+      if (rect.width === 0 || rect.height === 0) {
+        return { error: 'Element has no dimensions' };
+      }
+
+      if (rect.top + rect.height < 0 || rect.top > window.innerHeight ||
+          rect.left + rect.width < 0 || rect.left > window.innerWidth) {
+        return { error: 'Element is outside viewport' };
+      }
+
+      // Return center coordinates of the element
+      return {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+        width: rect.width,
+        height: rect.height
+      };
+    })()
+  `,
+
+  /**
+   * Gets unique selectors and descriptions for elements
+   */
+  getElementSelectorsAndDescriptions: (selector: string, limit: number = 3) => `
+    (function() {
+      const elements = Array.from(document.querySelectorAll(${JSON.stringify(selector)}));
+      const total = elements.length;
+
+      if (total === 0) return { total: 0, elements: [] };
+
+      const results = elements.slice(0, ${limit}).map((el, index) => ({
+        selector: el.id ? '#' + el.id : (total > 1 ? ${JSON.stringify(selector)} + '[' + index + ']' : ${JSON.stringify(selector)}),
+        text: (el.textContent || '').trim().substring(0, 50).replace(/\\s+/g, ' ')
+      }));
+
+      return { total, elements: results };
+    })()
+  `,
+
+  /**
    * Cleans up all data-inspect-id attributes
    */
   cleanupInspectIds: () => `

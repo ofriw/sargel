@@ -60,6 +60,8 @@ async function httpPut(url: string): Promise<{ status: number; data: string }> {
 }
 
 async function connectToChrome(port: number, maxRetries = 5): Promise<BrowserInstance> {
+  let lastError: Error | undefined;
+
   for (let i = 0; i < maxRetries; i++) {
     try {
       const versionResponse = await httpGet(`http://localhost:${port}/json/version`);
@@ -67,7 +69,7 @@ async function connectToChrome(port: number, maxRetries = 5): Promise<BrowserIns
         const version = JSON.parse(versionResponse.data) as ChromeVersion;
         const targetsResponse = await httpGet(`http://localhost:${port}/json`);
         const targets = JSON.parse(targetsResponse.data) as ChromeTarget[];
-        
+
         return {
           port,
           version,
@@ -76,15 +78,14 @@ async function connectToChrome(port: number, maxRetries = 5): Promise<BrowserIns
         };
       }
     } catch (error) {
-      const err = error as Error;
-      if (i === maxRetries - 1) {
-        throw new Error(`Failed to connect to Chrome after ${maxRetries} attempts: ${err.message}`);
+      lastError = error as Error;
+      if (i < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
-      await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
-  
-  throw new Error('Should not reach here');
+
+  throw new Error(`Failed to connect to Chrome after ${maxRetries} attempts: ${lastError?.message || 'Unknown error'}`);
 }
 
 async function cleanup(): Promise<void> {
