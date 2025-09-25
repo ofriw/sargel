@@ -9,6 +9,31 @@ export interface InspectElementArgs {
   zoomFactor?: number;   // Override automatic zoom calculation (0.5-3.0)
 }
 
+export interface ClickElementArgs {
+  css_selector: string;
+  url: string;
+}
+
+export interface ClickResult {
+  clicked_element: {
+    selector: string;
+    index: number;
+    coordinates: {
+      x: number;
+      y: number;
+    };
+    description: string;
+  };
+  matched_elements?: {
+    total: number;
+    elements: Array<{
+      selector: string;  // UNIQUE selector with [index] when needed
+      text: string;      // First 50 chars of text content
+    }>;
+  };
+  screenshot: string;
+}
+
 export interface Rect {
   x: number;
   y: number;

@@ -148,8 +148,20 @@ export const FALLBACK_COLORS = {
   FILL: 0xFFFFFFCC,
 } as const;
 
+// Click Interaction Configuration
+export const CLICK_CONFIG = {
+  /** Delay between mouse press and release events (ms) - Simulates human click timing for realistic interaction */
+  MOUSE_PRESS_DELAY: 50,
+  /** Wait time after click for DOM changes to take effect (ms) - Allows DOM updates and transitions to complete */
+  CLICK_EFFECT_WAIT: 200,
+  /** Delay after scrolling to let DOM stabilize (ms) - Ensures viewport stabilizes after scrolling */
+  SCROLL_SETTLE_DELAY: 100,
+} as const;
+
 // Element Limits and Safety
 export const ELEMENT_LIMITS = {
   /** Maximum property value length for display */
   MAX_PROPERTY_LENGTH: 100,
+  /** Default maximum elements to process */
+  DEFAULT: 20,
 } as const;
