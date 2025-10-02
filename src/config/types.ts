@@ -34,6 +34,33 @@ export interface ClickResult {
   screenshot: string;
 }
 
+export interface ScrollElementArgs {
+  css_selector: string;
+  url: string;
+}
+
+export interface ScrollElementResult {
+  scrolled_element: {
+    selector: string;
+    index: number;
+    scroll_delta: { x: number; y: number };
+    final_position: { x: number; y: number; width: number; height: number };
+    description: string;
+  };
+  viewport_info: {
+    scroll_position: { x: number; y: number };
+    size: { width: number; height: number };
+  };
+  matched_elements?: {
+    total: number;
+    elements: Array<{
+      selector: string;  // UNIQUE selector with [index] when needed
+      text: string;      // First 50 chars of text content
+    }>;
+  };
+  screenshot: string;
+}
+
 export interface Rect {
   x: number;
   y: number;
