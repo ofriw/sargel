@@ -78,19 +78,29 @@ export const BrowserScripts = {
 
 
   /**
-   * Centers multiple elements by finding their bounding box
+   * Scrolls to elements by centering their bounding box in viewport
+   * Works consistently for single or multiple elements
    */
-  centerMultipleElements: (uniqueIds: string[]) => `
+  scrollToElements: (uniqueIds: string[]) => `
     (function() {
+      // Get elements
       const elements = [${uniqueIds.map(id => `document.querySelector('[data-inspect-id="${id}"]')`).join(', ')}];
       const validElements = elements.filter(el => el !== null);
-      
-      if (validElements.length === 0) return;
-      
-      // Calculate bounding box of all elements
+
+      if (validElements.length === 0) {
+        return { error: 'No elements found', count: 0 };
+      }
+
+      // Capture initial scroll position
+      const scrollBefore = {
+        x: window.scrollX || window.pageXOffset || 0,
+        y: window.scrollY || window.pageYOffset || 0
+      };
+
+      // Calculate bounding box of all elements (works for single or multiple)
       let minX = Infinity, minY = Infinity;
       let maxX = -Infinity, maxY = -Infinity;
-      
+
       validElements.forEach(el => {
         const rect = el.getBoundingClientRect();
         minX = Math.min(minX, rect.left);
@@ -98,19 +108,50 @@ export const BrowserScripts = {
         maxX = Math.max(maxX, rect.right);
         maxY = Math.max(maxY, rect.bottom);
       });
-      
+
       const centerX = (minX + maxX) / 2;
       const centerY = (minY + maxY) / 2;
       const viewportCenterX = window.innerWidth / 2;
       const viewportCenterY = window.innerHeight / 2;
-      
+
+      // Scroll viewport center to bounding box center
       window.scrollBy({
         left: centerX - viewportCenterX,
         top: centerY - viewportCenterY,
         behavior: 'instant'
       });
-    })();
+
+      // Capture final scroll position
+      const scrollAfter = {
+        x: window.scrollX || window.pageXOffset || 0,
+        y: window.scrollY || window.pageYOffset || 0
+      };
+
+      return {
+        scrollDelta: {
+          x: scrollAfter.x - scrollBefore.x,
+          y: scrollAfter.y - scrollBefore.y
+        },
+        finalScroll: scrollAfter,
+        targetBounds: {
+          x: minX,
+          y: minY,
+          width: maxX - minX,
+          height: maxY - minY
+        },
+        viewportSize: {
+          width: window.innerWidth,
+          height: window.innerHeight
+        }
+      };
+    })()
   `,
+
+  /**
+   * Centers multiple elements by finding their bounding box (backward compatibility alias)
+   */
+  centerMultipleElements: (uniqueIds: string[]) =>
+    BrowserScripts.scrollToElements(uniqueIds),
 
   /**
    * Finds or creates unique IDs for elements
