@@ -5,8 +5,9 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { inspectElement } from './inspect-element.js';
 import { clickElement } from './click-element.js';
+import { scrollElement } from './scroll-element.js';
 import { parseSelector } from './browser/selector-utils.js';
-import type { InspectElementArgs, ClickElementArgs } from './config/types.js';
+import type { InspectElementArgs, ClickElementArgs, ScrollElementArgs } from './config/types.js';
 
 
 function formatInspectionResult(result: any): string {
@@ -130,6 +131,51 @@ function formatClickResponse(result: any): string {
   return clickText;
 }
 
+function formatScrollResponse(result: any): string {
+  const { scrolled_element, viewport_info } = result;
+
+  let scrollText = `Scrolled to element: ${scrolled_element.selector}`;
+
+  // Add scroll delta information
+  const deltaX = scrolled_element.scroll_delta.x;
+  const deltaY = scrolled_element.scroll_delta.y;
+  if (deltaX !== 0 || deltaY !== 0) {
+    scrollText += `\nScroll delta: (${deltaX}, ${deltaY})`;
+  } else {
+    scrollText += `\nElement was already in view`;
+  }
+
+  // Add final viewport position
+  scrollText += `\nViewport position: (${viewport_info.scroll_position.x}, ${viewport_info.scroll_position.y})`;
+
+  // Add element final position
+  const pos = scrolled_element.final_position;
+  scrollText += `\nElement position: (${pos.x}, ${pos.y}) size: ${pos.width}×${pos.height}`;
+
+  if (result.matched_elements && result.matched_elements.total > 1) {
+    const { selector } = parseSelector(scrolled_element.selector);
+    scrollText += `\n\nFound ${result.matched_elements.total} elements matching "${selector}":`;
+
+    result.matched_elements.elements.forEach((element: any, i: number) => {
+      const isScrolled = i === scrolled_element.index;
+      const arrow = isScrolled ? ' ← scrolled to' : '';
+      const text = element.text ? `: "${element.text}"` : '';
+      scrollText += `\n- ${element.selector}${text}${arrow}`;
+    });
+
+    if (result.matched_elements.total > result.matched_elements.elements.length) {
+      const remaining = result.matched_elements.total - result.matched_elements.elements.length;
+      scrollText += `\n- ... and ${remaining} more element${remaining > 1 ? 's' : ''}`;
+    }
+  }
+
+  if (scrolled_element.description) {
+    scrollText += `\n\nElement content: "${scrolled_element.description}"`;
+  }
+
+  return scrollText;
+}
+
 const server = new Server(
   {
     name: 'sargel',
@@ -206,6 +252,24 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             css_selector: {
               type: 'string',
               description: `CSS selector for target element. Supports indexing with square brackets like "button[0]" to click the first button. If no index is specified, clicks the first matching element.`,
+            },
+            url: {
+              type: 'string',
+              description: 'Full webpage URL including protocol (https://, http://).',
+            }
+          },
+          required: ['css_selector', 'url'],
+        },
+      },
+      {
+        name: 'scroll_element',
+        description: `Scrolls to a specific element and returns a screenshot. Leaves the page scrolled at the target position for subsequent navigation. Designed for visual debugging workflows.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            css_selector: {
+              type: 'string',
+              description: `CSS selector for target element. Supports indexing with square brackets like "button[0]" to scroll to the first button. If no index is specified, scrolls to the first matching element.`,
             },
             url: {
               type: 'string',
@@ -335,6 +399,70 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           {
             type: 'text',
             text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  } else if (name === 'scroll_element') {
+    const typedArgs = args as Record<string, unknown>;
+
+    try {
+      // Validate and convert arguments
+      const scrollArgs: ScrollElementArgs = {
+        css_selector: typedArgs.css_selector as string,
+        url: typedArgs.url as string,
+      };
+
+      // Validate required arguments
+      if (!scrollArgs.css_selector) {
+        throw new Error('css_selector is required');
+      }
+      if (!scrollArgs.url) {
+        throw new Error('url is required');
+      }
+
+      const result = await scrollElement(scrollArgs);
+
+      // Extract base64 data from data URL for image block
+      const base64Data = result.screenshot.replace(/^data:image\/png;base64,/, '');
+
+      const scrollText = formatScrollResponse(result);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: scrollText
+          },
+          {
+            type: 'image',
+            data: base64Data,
+            mimeType: 'image/png'
+          }
+        ]
+      };
+
+    } catch (error) {
+      console.error('Scroll error:', error);
+
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const helpText = `Error scrolling to element: ${errorMessage}
+
+Target: ${typedArgs.css_selector}
+URL: ${typedArgs.url}
+
+Troubleshooting:
+- Check if the page loads correctly in a browser
+- Verify the CSS selector matches an element on the page
+- Try using inspect_element first to explore available elements
+- For dynamic content, the element may need time to load`;
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: helpText,
           },
         ],
         isError: true,
