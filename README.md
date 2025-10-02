@@ -310,17 +310,6 @@ CDP provides accurate computed styles, precise box model data, and reliable cros
 
 ---
 
-## Roadmap
-
-- **Accessibility inspection** - ARIA roles, contrast ratios, focus indicators
-- **Responsive testing** - Multiple viewport sizes in single request
-- **CSS diffing** - Compare computed styles across elements or pages
-- **Animation debugging** - Capture and analyze CSS animations/transitions
-- **Design token extraction** - Pull colors, spacing, typography into design systems
-- **Cross-browser support** - Firefox and Safari via WebDriver BiDi
-
----
-
 ## Contributing
 
 SARGEL is 100% AI-generated and welcomes contributions! Whether you're fixing bugs, adding features, or improving documentation, your help makes visual debugging better for everyone.
