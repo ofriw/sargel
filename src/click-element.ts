@@ -1,60 +1,27 @@
-import { ensureChromeWithCDP, connectToTarget, CDPClient } from './browser/cdp-client.js';
 import { BrowserScripts } from './browser/browser-scripts.js';
-import { parseSelector } from './browser/selector-utils.js';
-import { getDocumentWithRetry, findAndMarkElements, cleanupInspectIds, formatElementNotFoundError, getElementDescriptions } from './browser/element-operations.js';
-import { CLICK_CONFIG, ELEMENT_LIMITS } from './config/constants.js';
+import { delay } from './browser/element-operations.js';
+import { executeElementInteraction } from './browser/element-interaction.js';
+import { centerElements } from './browser/scroll-operations.js';
+import { INTERACTION_TIMING } from './config/constants.js';
 import type { ClickElementArgs, ClickResult } from './config/types.js';
 
 /**
  * Clicks on a specific element and returns a screenshot
  *
  * Architecture Notes:
+ * - Uses shared element interaction wrapper for setup/teardown
  * - Browser instance reuse is handled by cdp-client.ts singleton pattern
  * - Connection pooling between operations is a future enhancement opportunity
- * - Uses the same element marking strategy as inspect-element for consistency
  */
 export async function clickElement(args: ClickElementArgs): Promise<ClickResult> {
-  const { css_selector, url } = args;
-
-  // Parse selector to handle index notation like "button[0]"
-  const { selector, index } = parseSelector(css_selector);
-
-  // Get or launch Chrome instance
-  const browser = await ensureChromeWithCDP();
-
-  // Connect to target
-  const ws = await connectToTarget(browser, url);
-  const cdp = new CDPClient(ws);
-
-  try {
-    // Enable required domains
-    await cdp.send('DOM.enable');
-    await cdp.send('Page.enable');
-
-    // Get document with retry logic
-    const doc = await getDocumentWithRetry(cdp);
-
-    // Find all matching elements and mark them with IDs
-    const result = await findAndMarkElements(cdp, selector, ELEMENT_LIMITS.DEFAULT);
-
-    // Get element descriptions for error reporting
-    const matchedElements = await getElementDescriptions(cdp, selector, 3);
-
-    // Check if requested index exists
-    if (index >= result.length) {
-      throw new Error(formatElementNotFoundError(selector, index, result.length, matchedElements));
-    }
-
-    const targetElement = result[index];
-    const uniqueId = targetElement.uniqueId;
+  return executeElementInteraction(args, async (context) => {
+    const { cdp, uniqueId, index, css_selector, matchedElements } = context;
 
     // Center the element in viewport to ensure it's clickable
-    await cdp.send('Runtime.evaluate', {
-      expression: BrowserScripts.centerMultipleElements([uniqueId])
-    });
+    await centerElements(cdp, [uniqueId]);
 
     // Wait for scrolling to settle
-    await new Promise(resolve => setTimeout(resolve, CLICK_CONFIG.SCROLL_SETTLE_DELAY));
+    await delay(INTERACTION_TIMING.SCROLL_SETTLE_DELAY);
 
     // Get click coordinates for the target element
     const coordsResult = await cdp.send('Runtime.evaluate', {
@@ -86,7 +53,7 @@ export async function clickElement(args: ClickElementArgs): Promise<ClickResult>
     });
 
     // Mouse released event (with slight delay to simulate realistic click)
-    await new Promise(resolve => setTimeout(resolve, CLICK_CONFIG.MOUSE_PRESS_DELAY));
+    await delay(INTERACTION_TIMING.MOUSE_PRESS_DELAY);
     await cdp.send('Input.dispatchMouseEvent', {
       type: 'mouseReleased',
       x: coords.x,
@@ -98,7 +65,7 @@ export async function clickElement(args: ClickElementArgs): Promise<ClickResult>
     });
 
     // Wait for any click effects to take place
-    await new Promise(resolve => setTimeout(resolve, CLICK_CONFIG.CLICK_EFFECT_WAIT));
+    await delay(INTERACTION_TIMING.CLICK_EFFECT_WAIT);
 
     // Capture screenshot
     const screenshotResult = await cdp.send('Page.captureScreenshot', {
@@ -126,11 +93,6 @@ export async function clickElement(args: ClickElementArgs): Promise<ClickResult>
       matched_elements: matchedElements,
       screenshot: `data:image/png;base64,${screenshotResult.data}`
     };
-
-  } finally {
-    // Clean up all data-inspect-id attributes
-    await cleanupInspectIds(cdp);
-    cdp.close();
-  }
+  });
 }
 

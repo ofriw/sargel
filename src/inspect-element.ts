@@ -7,7 +7,8 @@ import {
   type PropertyGroup
 } from './css/property-groups.js';
 import { BrowserScripts } from './browser/browser-scripts.js';
-import { getDocumentWithRetry, cleanupInspectIds } from './browser/element-operations.js';
+import { getDocumentWithRetry, cleanupInspectIds, delay } from './browser/element-operations.js';
+import { centerElements } from './browser/scroll-operations.js';
 import { Jimp } from 'jimp';
 import {
   FONT_CONFIG,
@@ -20,7 +21,8 @@ import {
   CROSSHAIR_CONFIG,
   HIGHLIGHT_COLORS,
   FALLBACK_COLORS,
-  ELEMENT_LIMITS
+  ELEMENT_LIMITS,
+  INTERACTION_TIMING
 } from './config/constants.js';
 import {
   drawRectangleOutline,
@@ -150,14 +152,6 @@ function convertElementMetricsToBoxModel(metrics: ElementMetrics): BoxModel {
     }
   };
 }
-
-
-async function centerMultipleElements(cdp: CDPClient, uniqueIds: string[]): Promise<void> {
-  await cdp.send('Runtime.evaluate', {
-    expression: BrowserScripts.centerMultipleElements(uniqueIds)
-  });
-}
-
 
 function calculateMultiElementZoom(elementPositions: ElementPosition[], viewport: ViewportInfo): number {
   // Calculate bounding box of all elements
@@ -780,7 +774,7 @@ async function prepareElementsForInspection(
     uniqueIds.push(uniqueId);
 
     // Add small delay to ensure attribute is set
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await delay(INTERACTION_TIMING.ATTRIBUTE_SET_DELAY);
 
     // Get element metrics using JavaScript for reliable coordinates (from working single-element approach)
     const elementMetrics = await getElementMetrics(cdp, uniqueId);
@@ -829,9 +823,9 @@ async function applyViewportAdjustments(
 ): Promise<number> {
   // Apply centering based on bounding box (works for 1 or many elements)
   if (autoCenter && uniqueIds.length > 0) {
-    await centerMultipleElements(cdp, uniqueIds);
+    await centerElements(cdp, uniqueIds);
     // Small delay to allow scroll to complete
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await delay(INTERACTION_TIMING.SCROLL_SETTLE_DELAY);
   }
 
   // Calculate and apply zoom if enabled
@@ -847,7 +841,7 @@ async function applyViewportAdjustments(
     if (appliedZoomFactor !== 1) {
       await setViewportScale(cdp, viewportInfo, appliedZoomFactor);
       // Small delay to allow zoom to apply
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await delay(INTERACTION_TIMING.ZOOM_SETTLE_DELAY);
     }
   }
 
@@ -944,7 +938,7 @@ async function captureEnhancedScreenshot(
   await highlightElements(cdp, nodeIds);
 
   // Wait for highlight overlay to render
-  await new Promise(resolve => setTimeout(resolve, 200));
+  await delay(INTERACTION_TIMING.HIGHLIGHT_RENDER_DELAY);
 
   // CRITICAL FIX: Update all element metrics with post-zoom coordinates using JavaScript
   for (let i = 0; i < nodeIds.length; i++) {
