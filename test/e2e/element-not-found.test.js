@@ -28,10 +28,10 @@ test('Element not found error handling', async (t) => {
             css_selector: '#non-existent-element',
             url: testUrl
         });
-        
+
         // Should get an error response
         assert.ok(response.result.isError, 'Response should indicate an error');
-        assert.ok(response.result.content[0].text.includes('Element not found'), 
+        assert.ok(response.result.content[0].text.includes('Error: Element not found'),
             'Should get element not found error');
         console.log('✅ Correctly received error:', response.result.content[0].text);
 

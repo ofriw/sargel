@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scrollable Test Page</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 3000px; /* Enable vertical scrolling */
+            width: 2000px;  /* Enable horizontal scrolling */
+        }
+
+        #top-element {
+            position: absolute;
+            top: 50px;
+            left: 50px;
+            background: #4285f4;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 200px;
+        }
+
+        #middle-element {
+            position: absolute;
+            top: 800px;
+            left: 100px;
+            background: #34a853;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 200px;
+        }
+
+        #bottom-element {
+            position: absolute;
+            top: 2500px;
+            left: 150px;
+            background: #ea4335;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 200px;
+        }
+
+        #right-element {
+            position: absolute;
+            top: 400px;
+            left: 1500px;
+            background: #fbbc05;
+            color: black;
+            padding: 20px;
+            border-radius: 8px;
+            width: 200px;
+        }
+
+        .scroll-target {
+            margin: 200px 20px;
+            padding: 15px;
+            background: #9c27b0;
+            color: white;
+            border-radius: 4px;
+            width: 300px;
+            position: relative;
+        }
+
+        #fixed-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(0,0,0,0.9);
+            color: white;
+            z-index: 1000;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .content-section {
+            background: rgba(255, 255, 255, 0.95);
+            margin: 100px 20px;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .viewport-marker {
+            position: absolute;
+            right: 20px;
+            background: #ff5722;
+            color: white;
+            padding: 10px;
+            border-radius: 50%;
+            font-weight: bold;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="fixed-header">
+        Fixed Header - Should stay visible during scrolling
+    </div>
+
+    <div id="top-element">
+        <h3>Top Element</h3>
+        <p>This element is initially visible in the viewport.</p>
+    </div>
+
+    <div class="viewport-marker" style="top: 200px;">1</div>
+
+    <div class="content-section" style="top: 300px;">
+        <h2>Section 1</h2>
+        <p>This is the first content section. It should be visible without scrolling.</p>
+    </div>
+
+    <div class="scroll-target">
+        <strong>Scroll Target 1</strong> - First target for indexed selection
+    </div>
+
+    <div class="scroll-target">
+        <strong>Scroll Target 2</strong> - Second target for indexed selection
+    </div>
+
+    <div class="scroll-target">
+        <strong>Scroll Target 3</strong> - Third target for indexed selection (Test .scroll-target[2])
+    </div>
+
+    <div class="viewport-marker" style="top: 800px;">2</div>
+
+    <div id="middle-element">
+        <h3>Middle Element</h3>
+        <p>This element requires scrolling to reach from the top of the page.</p>
+    </div>
+
+    <div class="scroll-target">
+        <strong>Scroll Target 4</strong> - Fourth target
+    </div>
+
+    <div class="content-section" style="top: 1200px;">
+        <h2>Section 2</h2>
+        <p>This section is in the middle of the page and requires scrolling to reach.</p>
+    </div>
+
+    <div id="right-element">
+        <h3>Right Element</h3>
+        <p>This element requires horizontal scrolling to see fully.</p>
+    </div>
+
+    <div class="scroll-target">
+        <strong>Scroll Target 5</strong> - Fifth target for testing multiple elements
+    </div>
+
+    <div class="viewport-marker" style="top: 1800px;">3</div>
+
+    <div class="content-section" style="top: 2000px;">
+        <h2>Section 3</h2>
+        <p>This section is near the bottom and requires significant scrolling.</p>
+    </div>
+
+    <div class="viewport-marker" style="top: 2400px;">4</div>
+
+    <div id="bottom-element">
+        <h3>Bottom Element</h3>
+        <p>This element is at the very bottom of the page and requires maximum scrolling.</p>
+    </div>
+
+    <div class="content-section" style="top: 2700px;">
+        <h2>Final Section</h2>
+        <p>This is the last section at the bottom of the scrollable area.</p>
+    </div>
+</body>
+</html>

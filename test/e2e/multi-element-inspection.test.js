@@ -254,7 +254,7 @@ test('Multi-element inspection', async (t) => {
             // Should get an error response
             assert.ok(response.result.isError, 'Response should indicate an error');
             const errorText = response.result.content[0].text;
-            assert.ok(errorText.includes('Invalid CSS selector') || errorText.includes('Element not found'), 
+            assert.ok(errorText.includes('Error: Invalid CSS selector') || errorText.includes('Error: Element not found'),
                 'Should provide specific error about invalid selector');
 
             console.log('✅ Invalid selector error handling test passed');

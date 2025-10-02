@@ -116,7 +116,7 @@ test('Click element functionality', async (t) => {
 
         assert.ok(clickResponse6.result, 'Should have result for out of bounds index');
         assert.strictEqual(clickResponse6.result.isError, true, 'Should indicate error');
-        assert.ok(clickResponse6.result.content[0].text.includes('Cannot click element at index 10'), 'Should show index not found error');
+        assert.ok(clickResponse6.result.content[0].text.includes('Error: Element not found at index 10'), 'Should show index not found error');
 
         // Test 8: Error case - invalid CSS selector
         const clickResponse7 = await mcpClient.callTool('click_element', {

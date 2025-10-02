@@ -49,7 +49,7 @@ test('URL navigation handling', async (t) => {
         
         // Should get an error because Google doesn't have our element
         assert.ok(noTargetResponse.result.isError, 'Should get error when element not found on wrong page');
-        assert.ok(noTargetResponse.result.content[0].text.includes('Element not found'), 
+        assert.ok(noTargetResponse.result.content[0].text.includes('Error: Element not found'),
             'Should get element not found error from wrong page');
         console.log('✅ Correctly received error for wrong page:', noTargetResponse.result.content[0].text);
 

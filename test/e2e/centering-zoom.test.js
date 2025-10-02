@@ -35,7 +35,13 @@ test('Auto-center and zoom functionality', async (t) => {
 
             assert.ok(response.result, 'Should have result');
             const result = response.result;
-            
+
+            // Verify content structure before parsing
+            assert.ok(Array.isArray(result.content), 'Result should have content array');
+            assert.ok(result.content.length >= 3, 'Result should have at least 3 content items');
+            assert.ok(result.content[2], 'Should have third content item');
+            assert.strictEqual(result.content[2].type, 'text', 'Third content item should be text');
+
             // Parse diagnostic data
             const jsonContent = result.content[2];
             const diagnosticData = parseMarkdownDiagnostic(jsonContent.text);
