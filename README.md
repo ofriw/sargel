@@ -9,13 +9,9 @@
 </div>
 
 <div align="center">
-  <a href="https://www.npmjs.com/package/sargel">
-    <img src="https://img.shields.io/npm/v/sargel.svg" alt="npm version">
-  </a>
+  <a href="https://www.npmjs.com/package/sargel"><img src="https://img.shields.io/npm/v/sargel.svg" alt="npm version"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
-  <a href="https://nodejs.org/">
-    <img src="https://img.shields.io/badge/Node.js-24%2B-green.svg" alt="Node.js">
-  </a>
+  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-24%2B-green.svg" alt="Node.js"></a>
   <img src="https://img.shields.io/badge/100%25%20AI-Generated-ff69b4.svg" alt="100% AI Generated">
 </div>
 
