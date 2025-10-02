@@ -7,6 +7,13 @@ import { CDPClient } from './cdp-client.js';
 import { BrowserScripts } from './browser-scripts.js';
 
 /**
+ * Simple delay utility to replace setTimeout patterns
+ */
+export async function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
  * Gets document with retry logic for cases where DOM is not ready
  */
 export async function getDocumentWithRetry(cdp: CDPClient): Promise<any> {
@@ -27,7 +34,7 @@ export async function getDocumentWithRetry(cdp: CDPClient): Promise<any> {
       if (attempts >= maxAttempts) {
         throw new Error(`Failed to get document after ${maxAttempts} attempts: ${error}`);
       }
-      await new Promise(resolve => setTimeout(resolve, 500 * attempts));
+      await delay(500 * attempts);
     }
   }
 
@@ -87,7 +94,7 @@ export async function getElementDescriptions(cdp: CDPClient, selector: string, l
  * Formats element not found error with available options
  */
 export function formatElementNotFoundError(selector: string, index: number, resultLength: number, matchedElements?: any): string {
-  let errorMessage = `Cannot click element at index ${index}.
+  let errorMessage = `Element not found at index ${index}.
 Found ${resultLength} elements matching "${selector}":`;
 
   if (matchedElements?.elements?.length > 0) {
