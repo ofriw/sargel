@@ -7,6 +7,7 @@ export interface InspectElementArgs {
   autoCenter?: boolean;  // Default: true - automatically center elements in viewport
   autoZoom?: boolean;    // Default: true - automatically zoom to optimal size
   zoomFactor?: number;   // Override automatic zoom calculation (0.5-3.0)
+  sampleBackgroundColor?: boolean; // Default: false - sample actual pixel color from element background
 }
 
 export interface ClickElementArgs {
@@ -158,6 +159,18 @@ export interface ElementRelationship {
   alignment: ElementAlignment;
 }
 
+export interface ColorSample {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+}
+
+export interface SampledBackgroundColor {
+  background: ColorSample | null;
+  failureReason?: string;
+}
+
 export interface ElementInspection {
   selector: string;
   computed_styles: Record<string, string>;
@@ -165,6 +178,7 @@ export interface ElementInspection {
   cascade_rules: CascadeRule[];
   box_model: BoxModel;
   applied_edits?: Record<string, string>;
+  sampled_background_color?: SampledBackgroundColor;
 }
 
 export interface MultiInspectionResult {
