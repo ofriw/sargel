@@ -216,7 +216,7 @@ test('Custom Properties Integration Test', async (t) => {
             url: env.testUrl,
             property_groups: ['custom']
         });
-        
+
         assert.ok(customResponse.result, 'Custom properties response should succeed');
         const customData = parseMarkdownDiagnostic(customResponse.result.content[2].text);
 
