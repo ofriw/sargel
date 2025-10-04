@@ -1,4 +1,4 @@
-import type { InspectElementArgs, MultiInspectionResult, ElementInspection, ElementRelationship, BoxModel, CascadeRule, GroupedStyles, Rect, ElementMetrics } from './config/types.js';
+import type { InspectElementArgs, MultiInspectionResult, ElementInspection, ElementRelationship, BoxModel, CascadeRule, GroupedStyles, Rect, ElementMetrics, ColorSample } from './config/types.js';
 import { ensureChromeWithCDP, connectToTarget, CDPClient } from './browser/cdp-client.js';
 import {
   DEFAULT_PROPERTY_GROUPS,
@@ -10,6 +10,7 @@ import { BrowserScripts } from './browser/browser-scripts.js';
 import { getDocumentWithRetry, cleanupInspectIds, delay } from './browser/element-operations.js';
 import { centerElements } from './browser/scroll-operations.js';
 import { Jimp } from 'jimp';
+import { sampleElementColor } from './visual/color-sampler.js';
 import {
   FONT_CONFIG,
   VIEWPORT_CONFIG,
@@ -643,7 +644,8 @@ export async function inspectElement(args: InspectElementArgs): Promise<MultiIns
     url,
     property_groups = DEFAULT_PROPERTY_GROUPS,
     css_edits,
-    limit = 10
+    limit = 10,
+    sampleBackgroundColor = false
   } = args;
   
   // Get or launch Chrome instance
@@ -701,9 +703,10 @@ export async function inspectElement(args: InspectElementArgs): Promise<MultiIns
     // Always use multi-element inspection (single element is just array of 1)
     return await inspectMultipleElements(
       css_selector,
-      nodeIds, 
-      cdp, 
-      property_groups as PropertyGroup[], 
+      nodeIds,
+      cdp,
+      property_groups as PropertyGroup[],
+      sampleBackgroundColor,
       css_edits,
       args.autoCenter !== false, // Default to true unless explicitly disabled
       args.autoZoom !== false,   // Default to true unless explicitly disabled
@@ -857,6 +860,7 @@ async function collectElementStyles(
   cdp: CDPClient,
   selector: string,
   property_groups: PropertyGroup[],
+  sampleBackgroundColor: boolean,
   css_edits?: Record<string, string>
 ): Promise<{
   elements: ElementInspection[];
@@ -899,15 +903,15 @@ async function collectElementStyles(
     // Check if we have valid CSS edits to apply
     const hasEdits = preservedCssEdits && typeof preservedCssEdits === 'object' && Object.keys(preservedCssEdits).length > 0;
 
-
-    // Add to elements array
+    // Add to elements array (sampled background color initialized here, populated after screenshot capture)
     elements.push({
       selector: `${selector}[${i}]`, // Add index for clarity
       computed_styles: filteredComputedStyles,
       grouped_styles: categorizeProperties(filteredComputedStyles),
       cascade_rules: filteredCascadeRules,
       box_model: boxModel,
-      applied_edits: hasEdits ? preservedCssEdits : undefined
+      applied_edits: hasEdits ? preservedCssEdits : undefined,
+      sampled_background_color: sampleBackgroundColor ? { background: null } : undefined
     });
 
     // Accumulate stats
@@ -997,8 +1001,34 @@ async function captureEnhancedScreenshot(
     throw new Error('Failed to capture screenshot. The page may not be loaded or visible.');
   }
 
-  // Draw custom highlights on the screenshot for all elements
+  // Convert screenshot to buffer
   let screenshotBuffer: Buffer = Buffer.from(screenshotResult.data, 'base64');
+
+  // Sample pixel colors from original screenshot (before highlights are drawn)
+  if (elements.some(e => e.sampled_background_color)) {
+    const screenshotImage = await Jimp.read(screenshotBuffer);
+    const scalingFactors = calculateScalingFactors(
+      viewportInfo,
+      screenshotImage.bitmap.width,
+      screenshotImage.bitmap.height,
+      screenshotOptions.clip
+    );
+
+    for (let i = 0; i < nodeData.length; i++) {
+      if (elements[i].sampled_background_color) {
+        const result = await sampleElementColor(
+          screenshotImage,
+          nodeData[i].boxModel,
+          scalingFactors,
+          screenshotOptions.clip
+        );
+        elements[i].sampled_background_color!.background = result.color;
+        elements[i].sampled_background_color!.failureReason = result.failureReason;
+      }
+    }
+  }
+
+  // Draw custom highlights on the screenshot for all elements
   for (let i = 0; i < nodeData.length; i++) {
     screenshotBuffer = await drawHighlightOnScreenshot(
       screenshotBuffer,
@@ -1049,6 +1079,7 @@ async function inspectMultipleElements(
   nodeIds: number[],
   cdp: CDPClient,
   property_groups: PropertyGroup[],
+  sampleBackgroundColor: boolean,
   css_edits?: Record<string, string>,
   autoCenter: boolean = true,
   autoZoom: boolean = true,
@@ -1101,6 +1132,7 @@ async function inspectMultipleElements(
       cdp,
       selector,
       property_groups,
+      sampleBackgroundColor,
       css_edits
     );
 
