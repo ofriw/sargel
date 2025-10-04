@@ -170,7 +170,7 @@ function parseElementSection(section) {
   }
 
   // Parse applied edits
-  const editsMatch = section.match(/edits:\n([\s\S]*)/);
+  const editsMatch = section.match(/edits:\n([\s\S]*?)(?=\n(?:sampled_background|colors):|$)/);
   if (editsMatch) {
     element.applied_edits = {};
     const editLines = editsMatch[1].trim().split('\n');
@@ -178,6 +178,40 @@ function parseElementSection(section) {
       const [key, value] = line.split(':');
       if (key && value) {
         element.applied_edits[key.trim()] = value.trim();
+      }
+    }
+  }
+
+  // Parse sampled background color
+  const sampledBgMatch = section.match(/sampled_background:\n([\s\S]*?)(?:\n\n|$)/);
+  if (sampledBgMatch) {
+    element.sampled_background_color = {
+      background: null
+    };
+    const colorLines = sampledBgMatch[1].trim().split('\n').filter(line => line.trim());
+    for (const line of colorLines) {
+      const colorMatch = line.match(/^color:\s*(.+?)(?:\s*#.*)?$/);
+      if (colorMatch) {
+        const colorValue = colorMatch[1].trim();
+        if (colorValue.startsWith('unavailable')) {
+          // Parse failure reason if present: "unavailable (reason)"
+          const reasonMatch = colorValue.match(/unavailable\s*\(([^)]+)\)/);
+          element.sampled_background_color.background = null;
+          if (reasonMatch) {
+            element.sampled_background_color.failureReason = reasonMatch[1].trim();
+          }
+        } else {
+          // Parse rgba values
+          const rgbaMatch = colorValue.match(/rgba\((\d+),(\d+),(\d+),([\d.]+)\)/);
+          if (rgbaMatch) {
+            element.sampled_background_color.background = {
+              r: parseInt(rgbaMatch[1]),
+              g: parseInt(rgbaMatch[2]),
+              b: parseInt(rgbaMatch[3]),
+              a: parseFloat(rgbaMatch[4])
+            };
+          }
+        }
       }
     }
   }

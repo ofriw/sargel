@@ -65,6 +65,14 @@
             border: 5px solid #e91e63;
             background-color: #f8bbd9;
         }
+
+        small {
+            display: inline-block;
+            width: 5px;
+            height: 5px;
+            background-color: #9c27b0;
+            font-size: 1px;
+        }
     </style>
 </head>
 <body>
@@ -75,7 +83,7 @@
     <div class="container">
         <button class="test-button" id="primary-button">Primary Button</button>
         <button class="test-button" id="secondary-button">Secondary Button</button>
-        
+
         <div data-test="custom-element">
             This element has a data-test attribute for testing
         </div>
@@ -89,8 +97,10 @@
         <div id="precise-box">
             Box with precise dimensions for testing box model calculations
         </div>
+
+        <small>x</small>
     </div>
-    
+
     <footer style="margin-top: 50px; padding: 20px; background: #333; color: white;">
         <p>Footer content for testing</p>
     </footer>
