@@ -6,6 +6,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import { inspectElement } from './inspect-element.js';
 import { clickElement } from './click-element.js';
 import { scrollElement } from './scroll-element.js';
+import { formatColorSample } from './visual/color-sampler.js';
 import { parseSelector } from './browser/selector-utils.js';
 import type { InspectElementArgs, ClickElementArgs, ScrollElementArgs } from './config/types.js';
 
@@ -101,6 +102,20 @@ function formatElementCompact(element: any): string {
     markdown += '\nedits:\n';
     for (const [prop, value] of Object.entries(element.applied_edits)) {
       markdown += `${prop}: ${value}\n`;
+    }
+    markdown += '\n';
+  }
+
+  // Sampled background color if available
+  if (element.sampled_background_color) {
+    markdown += '\nsampled_background:\n';
+    const sampled = element.sampled_background_color;
+
+    if (sampled.background) {
+      markdown += `color: ${formatColorSample(sampled.background)}\n`;
+    } else {
+      const reason = sampled.failureReason || 'unknown';
+      markdown += `color: unavailable (${reason})\n`;
     }
     markdown += '\n';
   }
@@ -238,6 +253,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               description: `Manual zoom level override (0.5-3.0). Overrides autoZoom when specified.`,
               minimum: 0.5,
               maximum: 3.0
+            },
+            sampleBackgroundColor: {
+              type: 'boolean',
+              description: `Sample actual pixel color from element background. Returns sampled background color from padding box corner. Default: false.`,
+              default: false
             }
           },
           required: ['css_selector', 'url'],
@@ -299,7 +319,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         limit: typedArgs.limit as number | undefined,
         autoCenter: typedArgs.autoCenter as boolean | undefined,
         autoZoom: typedArgs.autoZoom as boolean | undefined,
-        zoomFactor: typedArgs.zoomFactor as number | undefined
+        zoomFactor: typedArgs.zoomFactor as number | undefined,
+        sampleBackgroundColor: typedArgs.sampleBackgroundColor as boolean | undefined
       };
 
       // Validate required arguments
