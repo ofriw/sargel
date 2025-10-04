@@ -173,3 +173,32 @@ export const ELEMENT_LIMITS = {
   /** Default maximum elements to process */
   DEFAULT: 20,
 } as const;
+
+// Color Sampling Configuration
+export const COLOR_SAMPLING = {
+  /**
+   * Minimum element dimension (width or height) for reliable sampling.
+   * With 3px minimum inset from each edge (6px total), elements need at least
+   * 10px to have room for sampling. Smaller elements risk hitting borders,
+   * text, or sampling outside the element bounds.
+   */
+  MIN_ELEMENT_SIZE: 10,
+
+  /**
+   * Minimum inset from padding box edges when sampling corners.
+   * Ensures we sample inside the padding area, avoiding borders.
+   */
+  MIN_INSET_PX: 3,
+
+  /**
+   * Maximum inset from padding box edges when sampling corners.
+   * Prevents excessive inset on large elements (e.g., 100px+ buttons).
+   */
+  MAX_INSET_PX: 10,
+
+  /**
+   * Percentage-based inset from padding box edges (0.15 = 15%).
+   * Moves sample points away from borders and centered text.
+   */
+  INSET_PERCENTAGE: 0.15,
+} as const;
